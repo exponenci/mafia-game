@@ -13,43 +13,31 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cserver.proto\"*\n\x16TRegisterClientRequest\x12\x10\n\x08username\x18\x01 \x01(\t\"*\n\x17TRegisterClientResponse\x12\x0f\n\x07message\x18\x01 \x01(\t\" \n\x0cTPingRequest\x12\x10\n\x08username\x18\x01 \x01(\t\" \n\rTPingResponse\x12\x0f\n\x07message\x18\x01 \x01(\t\"*\n\x16TGetSessionInfoRequest\x12\x10\n\x08username\x18\x01 \x01(\t\"\xbb\x01\n\x17TGetSessionInfoResponse\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\x17\n\nsession_id\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x1a\n\rplayers_count\x18\x03 \x01(\x05H\x01\x88\x01\x01\x12\x18\n\x0bmafia_count\x18\x04 \x01(\x05H\x02\x88\x01\x01\x12\x0f\n\x07\x63lients\x18\x05 \x03(\tB\r\n\x0b_session_idB\x10\n\x0e_players_countB\x0e\n\x0c_mafia_count\"T\n\x14TStartSessionRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\x15\n\rplayers_count\x18\x02 \x01(\x05\x12\x13\n\x0bmafia_count\x18\x03 \x01(\x05\"a\n\x15TStartSessionResponse\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\x14\n\nsession_id\x18\x02 \x01(\tH\x00\x12\x15\n\x04role\x18\x03 \x01(\x0e\x32\x05.RoleH\x00\x42\n\n\x08response\"B\n\x1aTAddMemberToSessionRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\x12\n\nsession_id\x18\x02 \x01(\t\"Q\n\x1bTAddMemberToSessionResponse\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\x18\n\x04role\x18\x02 \x01(\x0e\x32\x05.RoleH\x00\x88\x01\x01\x42\x07\n\x05_role\"9\n\x11TSubscribeRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\x12\n\nsession_id\x18\x02 \x01(\t\"%\n\rTNotification\x12\x14\n\x0cnotification\x18\x01 \x01(\t\"L\n\x13TSessionMoveRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\x10\n\x08vote_for\x18\x02 \x01(\t\x12\x11\n\tsesion_id\x18\x03 \x01(\t\"\'\n\x14TSessionMoveResponse\x12\x0f\n\x07message\x18\x01 \x01(\t*<\n\x04Role\x12\r\n\tUndefined\x10\x00\x12\t\n\x05Mafia\x10\x01\x12\x0b\n\x07\x43itizen\x10\x02\x12\r\n\tCommissar\x10\x03\x32\xa7\x01\n\x07IServer\x12\x30\n\rConnectClient\x12\r.TPingRequest\x1a\x0e.TPingResponse\"\x00\x12\x33\n\x10\x44isconnectClient\x12\r.TPingRequest\x1a\x0e.TPingResponse\"\x00\x12\x35\n\x10GetOnlinePlayers\x12\r.TPingRequest\x1a\x0e.TPingResponse\"\x00\x30\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cserver.proto\" \n\x0cTPingRequest\x12\x10\n\x08username\x18\x01 \x01(\t\" \n\rTPingResponse\x12\x0f\n\x07message\x18\x01 \x01(\t\"\x8b\x05\n\x13TSystemNotification\x12\x33\n\x04type\x18\x01 \x01(\x0e\x32%.TSystemNotification.NotificationType\x12\x11\n\x07message\x18\x02 \x01(\tH\x00\x12\x38\n\x0csession_info\x18\x03 \x01(\x0b\x32 .TSystemNotification.SessionInfoH\x00\x12\x32\n\tturn_info\x18\x04 \x01(\x0b\x32\x1d.TSystemNotification.TurnInfoH\x00\x1a[\n\x0bSessionInfo\x12\x12\n\nsession_id\x18\x01 \x01(\t\x12\'\n\x04role\x18\x02 \x01(\x0e\x32\x19.TSystemNotification.Role\x12\x0f\n\x07players\x18\x03 \x03(\t\x1a\xc0\x01\n\x08TurnInfo\x12\'\n\x04turn\x18\x01 \x01(\x0e\x32\x19.TSystemNotification.Role\x12\x14\n\x0cvote_options\x18\x02 \x03(\t\x12\x1c\n\x0ftarget_username\x18\x03 \x01(\tH\x00\x88\x01\x01\x12\x33\n\x0btarget_role\x18\x04 \x01(\x0e\x32\x19.TSystemNotification.RoleH\x01\x88\x01\x01\x42\x12\n\x10_target_usernameB\x0e\n\x0c_target_role\"X\n\x10NotificationType\x12\x13\n\x0fREGULAR_MESSAGE\x10\x00\x12\x18\n\x14SESSION_INFO_MESSAGE\x10\x01\x12\x15\n\x11TURN_INFO_MESSAGE\x10\x02\"<\n\x04Role\x12\x0e\n\nMAFIA_ROLE\x10\x00\x12\x10\n\x0c\x43ITIZEN_ROLE\x10\x01\x12\x12\n\x0e\x43OMMISSAR_ROLE\x10\x02\x42\x06\n\x04\x64\x61ta\"M\n\x13TSessionMoveRequest\x12\x10\n\x08username\x18\x01 \x01(\t\x12\x10\n\x08vote_for\x18\x02 \x01(\t\x12\x12\n\nsession_id\x18\x03 \x01(\t\"\'\n\x14TSessionMoveResponse\x12\x0f\n\x07message\x18\x01 \x01(\t2\xf0\x01\n\x07IServer\x12\x30\n\rConnectClient\x12\r.TPingRequest\x1a\x0e.TPingResponse\"\x00\x12\x33\n\x10\x44isconnectClient\x12\r.TPingRequest\x1a\x0e.TPingResponse\"\x00\x12\x44\n\x19SubscribeForNotifications\x12\r.TPingRequest\x1a\x14.TSystemNotification\"\x00\x30\x01\x12\x38\n\x07RunGame\x12\x14.TSessionMoveRequest\x1a\x15.TSessionMoveResponse\"\x00\x62\x06proto3')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'server_pb2', globals())
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
-  _ROLE._serialized_start=959
-  _ROLE._serialized_end=1019
-  _TREGISTERCLIENTREQUEST._serialized_start=16
-  _TREGISTERCLIENTREQUEST._serialized_end=58
-  _TREGISTERCLIENTRESPONSE._serialized_start=60
-  _TREGISTERCLIENTRESPONSE._serialized_end=102
-  _TPINGREQUEST._serialized_start=104
-  _TPINGREQUEST._serialized_end=136
-  _TPINGRESPONSE._serialized_start=138
-  _TPINGRESPONSE._serialized_end=170
-  _TGETSESSIONINFOREQUEST._serialized_start=172
-  _TGETSESSIONINFOREQUEST._serialized_end=214
-  _TGETSESSIONINFORESPONSE._serialized_start=217
-  _TGETSESSIONINFORESPONSE._serialized_end=404
-  _TSTARTSESSIONREQUEST._serialized_start=406
-  _TSTARTSESSIONREQUEST._serialized_end=490
-  _TSTARTSESSIONRESPONSE._serialized_start=492
-  _TSTARTSESSIONRESPONSE._serialized_end=589
-  _TADDMEMBERTOSESSIONREQUEST._serialized_start=591
-  _TADDMEMBERTOSESSIONREQUEST._serialized_end=657
-  _TADDMEMBERTOSESSIONRESPONSE._serialized_start=659
-  _TADDMEMBERTOSESSIONRESPONSE._serialized_end=740
-  _TSUBSCRIBEREQUEST._serialized_start=742
-  _TSUBSCRIBEREQUEST._serialized_end=799
-  _TNOTIFICATION._serialized_start=801
-  _TNOTIFICATION._serialized_end=838
-  _TSESSIONMOVEREQUEST._serialized_start=840
-  _TSESSIONMOVEREQUEST._serialized_end=916
-  _TSESSIONMOVERESPONSE._serialized_start=918
-  _TSESSIONMOVERESPONSE._serialized_end=957
-  _ISERVER._serialized_start=1022
-  _ISERVER._serialized_end=1189
+  _TPINGREQUEST._serialized_start=16
+  _TPINGREQUEST._serialized_end=48
+  _TPINGRESPONSE._serialized_start=50
+  _TPINGRESPONSE._serialized_end=82
+  _TSYSTEMNOTIFICATION._serialized_start=85
+  _TSYSTEMNOTIFICATION._serialized_end=736
+  _TSYSTEMNOTIFICATION_SESSIONINFO._serialized_start=290
+  _TSYSTEMNOTIFICATION_SESSIONINFO._serialized_end=381
+  _TSYSTEMNOTIFICATION_TURNINFO._serialized_start=384
+  _TSYSTEMNOTIFICATION_TURNINFO._serialized_end=576
+  _TSYSTEMNOTIFICATION_NOTIFICATIONTYPE._serialized_start=578
+  _TSYSTEMNOTIFICATION_NOTIFICATIONTYPE._serialized_end=666
+  _TSYSTEMNOTIFICATION_ROLE._serialized_start=668
+  _TSYSTEMNOTIFICATION_ROLE._serialized_end=728
+  _TSESSIONMOVEREQUEST._serialized_start=738
+  _TSESSIONMOVEREQUEST._serialized_end=815
+  _TSESSIONMOVERESPONSE._serialized_start=817
+  _TSESSIONMOVERESPONSE._serialized_end=856
+  _ISERVER._serialized_start=859
+  _ISERVER._serialized_end=1099
 # @@protoc_insertion_point(module_scope)

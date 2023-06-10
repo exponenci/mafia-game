@@ -1,108 +1,194 @@
+import os
+import sys
+import inspect
 
-# class Client:
-#     def __init__(name):
-#         # registry name
-#     def get_curr_session_players():
-#         # get curr session info : players
-#     def append_to_session(session_id):
-#         # append client to session
-#     def create_session():
-#         # create session
-#     def vote():
-#     def kill():
-#     def suspect():
+currentdir = os.path.dirname(
+    os.path.abspath(inspect.getfile(inspect.currentframe())))
+parentdir = os.path.dirname(currentdir)
+sys.path.insert(0, parentdir)
+sys.path.insert(0, parentdir + '/proto')
+
 import grpc
-
-# Copyright 2020 The gRPC Authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-"""The Python AsyncIO implementation of the gRPC route guide client."""
-
+import time
+import re
 import asyncio
+
 import logging
 import random
-from typing import Iterable, List
+from typing import Iterable, List, Optional, Tuple
 
 import grpc
-import server_pb2 as server_pb2
-import server_pb2_grpc as server_pb2_grpc
+import proto.server_pb2 as server_pb2
+import proto.server_pb2_grpc as server_pb2_grpc
+from dataclasses import dataclass, field
 
 
+@dataclass
+class ClientCore:
+    # session info for client
+    username: str
+    session_id: str
+    role: str
+    alive: bool = True
+    voted: bool = False
+    session_players: List[str] = field(default_factory=list) # username
+    killed_players: List[Tuple[str, str]] = field(default_factory=list) # username, role
 
-# async def guide_get_feature(stub: route_guide_pb2_grpc.RouteGuideStub) -> None:
-#     # The following two coroutines will be wrapped in a Future object
-#     # and scheduled in the event loop so that they can run concurrently
-#     task_group = asyncio.gather(
-#         guide_get_one_feature(
-#             stub, route_guide_pb2.Point(latitude=409146138,
-#                                         longitude=-746188906)),
-#         guide_get_one_feature(stub,
-#                               route_guide_pb2.Point(latitude=0, longitude=0)))
-#     # Wait until the Future is resolved
-#     await task_group
+    # turn info
+    turn: str = ''
+    target: Optional[Tuple[str, str]] = None # username, role
+    vote_options: Optional[List[str]] = None
+
+    def print_session_info(self):
+        print(f'$system> You are connected to session#{self.session_id}', flush=True)
+        print(f'$system> Your role: {self.role}', flush=True)
+        print(f'$system> Other players in session:', flush=True)
+        for player_username in self.session_players:
+            print(f'$system> - {player_username}')
+    
+    def set_turn_info(self, **kwargs):
+        for attr, value in kwargs.items():
+            print("SETTING VALUE:", attr, value)
+            setattr(self, attr, value)
+        if self.target is not None and self.target[0] == self.username:
+            self.alive = False
+        self.voted = False
+        
+    def print_turn_info(self):
+        if self.target is not None and self.target[0] != '':
+            if self.turn != 'Citizen':
+                print(f'$system> {self.target[0]} was killed! He was {self.target[1]}', flush=True)
+            else:
+                print(f'$system> the player who was checked by commissar is {self.target[1]}')
+        print(f'$system> {self.turn} turn...', flush=True)
+        if self.alive and self.vote_options is not None and (self.turn == self.role or self.turn == 'Citizen'):
+            print(f'$system> pick someone from options below', flush=True)
+            for option in self.vote_options:
+                print(f'$system> - {option}', flush=True)
+
+    async def make_votes(self) -> Iterable[str]: # picked user
+        print("OUTER MAKE VOTES...")
+        while self.turn != 'over' and self.alive: # game is not over
+            print("IN LOOP: ", self.turn, self.role, self.alive)
+            if not self.voted and (self.turn == self.role or self.turn == 'Citizen'):
+                self.voted = True
+                print("MAKE VOTES...")
+                while True:
+                    picked = input(f'$me> ').strip()
+                    if picked != self.username and picked in self.vote_options:
+                        break
+                yield picked
+            await asyncio.sleep(1)
+        print('OUT OF MAKE_VOTES')
 
 
-# # Performs a server-streaming call
-# async def guide_list_features(
-#         stub: route_guide_pb2_grpc.RouteGuideStub) -> None:
-#     rectangle = route_guide_pb2.Rectangle(
-#         lo=route_guide_pb2.Point(latitude=400000000, longitude=-750000000),
-#         hi=route_guide_pb2.Point(latitude=420000000, longitude=-730000000))
-#     print("Looking for features between 40, -75 and 42, -73")
+class Client:
+    def __init__(self, stub: server_pb2_grpc.IServerStub) -> None:
+        self._stub: server_pb2_grpc.IServerStub = stub
+        self._username: str = ''
+        self._core: Optional[ClientCore] = None
 
-#     features = stub.ListFeatures(rectangle)
+    async def connect_client(self) -> None:
+        print("-------------- CONNECT --------------")
+        while True:
+            username = input('set your username: ').strip()
+            if len(username) < 3 or re.search(r"\s", username):
+                print('invalid name, set another please...')
+                continue
+            response = await self._stub.ConnectClient(server_pb2.TPingRequest(username=username)) 
+            print(response.message, flush=True)
+            if not response.message.startswith('error'):
+                break
+        self._username = username
+        print("CONNECTED")
 
-#     async for feature in features:
-#         print(f"Feature called {feature.name} at {feature.location}")
+    async def disconnect_client(self) -> None:
+        print("-------------- DISCONNECT --------------")
+        i = 0
+        while True:
+            await asyncio.sleep(1)
+            i += 1
+        response = await self._stub.DisconnectClient(server_pb2.TPingRequest(username=self._username)) 
+        print(response.message, flush=True)
+        print("--------------OUT OF DISCONNECT-------------")
 
-async def connect_client(stub: server_pb2_grpc.IServerStub, username: str) -> None:
-    print("-------------- CONNECT --------------")
-    response = await stub.ConnectClient(server_pb2.TPingRequest(username=username)) 
-    print(response.message, flush=True)
+    @staticmethod
+    def match_role(role: server_pb2.TSystemNotification.Role):
+        print(role)
+        if role == server_pb2.TSystemNotification.MAFIA_ROLE:
+            return 'Mafia'
+        elif role == server_pb2.TSystemNotification.COMMISSAR_ROLE:
+            return 'Commissar'
+        return 'Citizen'
 
-import time
-import asyncio
+    async def _get_system_notifications(self) -> None:
+        notifications = self._stub.SubscribeForNotifications(server_pb2.TPingRequest(username=self._username))
+        async for notif in notifications:
+            if notif.type == server_pb2.TSystemNotification.REGULAR_MESSAGE:
+                if notif.message == 'GAME OVER':
+                    self._core.turn = 'over'
+                print(f'$system> {notif.message}', flush=True)
+            elif notif.type == server_pb2.TSystemNotification.SESSION_INFO_MESSAGE:
+                session_info: server_pb2.TSystemNotification.SessionInfo = notif.session_info
+                self._core = ClientCore(
+                    username=self._username,
+                    session_id=session_info.session_id, 
+                    role=self.match_role(session_info.role), 
+                    session_players=session_info.players
+                )
+                self._core.print_session_info()
+            elif notif.type == server_pb2.TSystemNotification.TURN_INFO_MESSAGE:
+                turn_info: server_pb2.TSystemNotification.TurnInfo = notif.turn_info
+                print("TURN INFO:")
+                print(turn_info)
+                self._core.set_turn_info(
+                    turn=self.match_role(turn_info.turn),
+                    target=(turn_info.target_username, self.match_role(turn_info.target_role)),
+                    vote_options=turn_info.vote_options
+                )
+                self._core.print_turn_info()
+                await asyncio.sleep(1.5)
 
-async def disconnect_client(stub: server_pb2_grpc.IServerStub, username: str) -> None:
-    print("-------------- DISCONNECT --------------")
-    i = 0
-    while i < 10:
-        await asyncio.sleep(1)
-        i += 1
-    response = await stub.DisconnectClient(server_pb2.TPingRequest(username=username)) 
-    print(response.message, flush=True)
-    print("--------------OUT OF DISCONNECT-------------")
 
-async def get_online_players(stub: server_pb2_grpc.IServerStub, username: str) -> None:
-    print("-------------- GET NOTIFICATIONS --------------")
-    async for notif in stub.GetOnlinePlayers(server_pb2.TPingRequest(username=username)):
-        if notif:
-            print('system notif: ', notif.message, flush=True)
+    async def generate_vote_requests(self):
+        print("GENERATE")
+        while self._core is None:
+            await asyncio.sleep(1)
+        async for vote in self._core.make_votes():
+            print("TARGET VOTE: ", vote)
+            response = await self._stub.RunGame(server_pb2.TSessionMoveRequest(
+                username=self._username, 
+                vote_for=vote, 
+                session_id=self._core.session_id
+            ))
+            await asyncio.sleep(1.5) # ???
+            print(response.message)
+            print(vote)
+        print('OUT OF GENERATE')
 
-async def run(stub: server_pb2_grpc.IServerStub, username: str):
-    task_group = asyncio.gather(
-        get_online_players(stub, username),
-        disconnect_client(stub, username) # нужно научиться отключать таску
-    )
-    await task_group
+    # async def _run_core(self):
+    #     call = self._stub.RunGame(self.generate_vote_requests())
+    #     async for response in call:
+    #         print("RUN CORE: ", response.message)
+    #         # yield
+
+        # await self.disconnect_client()
+
+    async def stack_tasks(self):
+        task_group = asyncio.gather(
+            self._get_system_notifications(),
+            # self._run_core()
+            self.generate_vote_requests()
+        )
+        await task_group
 
 
 async def main() -> None:
-    username = input('set username: ')
     async with grpc.aio.insecure_channel('localhost:50051') as channel:
         stub = server_pb2_grpc.IServerStub(channel)
-        await connect_client(stub, username)
-        await run(stub, username)
+        client = Client(stub)
+        await client.connect_client()
+        await client.stack_tasks()
 
 
 if __name__ == '__main__':

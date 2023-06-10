@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 import asyncio
 
 from player import Player
-from session import Session
+from session import Session, PLAYERS_COUNT, Notification
 
 from threading import Lock
 import threading
@@ -15,18 +15,37 @@ class Core:
     def __init__(self) -> None:
         self._sessions: Dict[str, Session] = dict()
         self._players: Dict[str, Player] = dict()
+        self._players_queue = asyncio.Queue(maxsize=PLAYERS_COUNT)
         self._recent_notifications = list()
+
+    async def create_session(self):
+        session_id = 'random_session_id'
+        players: Dict[str, Player] = dict()
+        for _ in range(PLAYERS_COUNT):
+            username = self._players_queue.get_nowait()
+            players[username] = self._players[username]
+            players[username].session_id = session_id
+        session = Session(session_id, players)
+        session.distribute_roles()
+        session.prepare_notifications()
+        session.reset()
+        self._sessions[session_id] = session
 
     async def connect_player(self, username: str) -> bool:
         if username in self._players:
             return {
-                'message': 'username already taken'
+                'message': 'error: username already taken'
             }
 
         self._players[username] = Player(session_id='', username=username)
 
-        self._recently_connected = self._recently_connected[-9:]
+        self._recent_notifications = self._recent_notifications[-9:]
         self._recent_notifications.append(username + ' connected')
+        self._players_queue.put_nowait(username)
+
+        print("QSIZE: ", self._players_queue.qsize())
+        if self._players_queue.full():
+            await self.create_session()
         
         return {
             'message': 'welcome'
@@ -40,7 +59,7 @@ class Core:
         player: Player = self._players.pop(username)
         player.accept_core_notifications = False
 
-        self._recently_connected = self._recently_connected[-9:]
+        self._recent_notifications = self._recent_notifications[-9:]
         self._recent_notifications.append(username + ' disconnected')
 
         return {
@@ -48,20 +67,38 @@ class Core:
         }
 
     async def core_notifications(self, username: str):
-        print("core_notifications")
+        print(username)
         if username not in self._players:
-            yield {
-                'message': 'username not found'
-            }
+            yield Notification(
+                {'message': 'error: no username in db'}, 
+                Notification.NotificationType.REGULAR,
+                receiver=''
+            )
         else:
             player: Player = self._players[username]
  
             while player.accept_core_notifications:
-                print("NOTIFICATION FOR USER ", player.username)
-                yield {
-                    'message': 'recently notifications players:\n' + '\n'.join(self._recent_notifications[::-1])
-                }
+                print("CORE NOTIFICATION FOR USER ", player.username)
+                yield Notification(
+                    {'message': 'recently notifications players:\n' + '\n'.join(self._recent_notifications[::-1])}, 
+                    Notification.NotificationType.REGULAR,
+                    receiver=''
+                )
                 await asyncio.sleep(1.5)
+            print("FINISHED CORE NOTIFICATIONS")
+            if player.session_id is None or player.session_id not in self._sessions:
+                return
+            session = self._sessions[player.session_id]
+            async for notif in session.send_notifications(username):
+                print("SESSION NOTIFICATION FOR USER", player.username)
+                print(notif)
+                yield notif
+    
+    async def count_vote(self, username: str, target: str, session_id: str):
+        if session_id not in self._sessions:
+            return # throw error
+        await self._sessions[session_id].accept_vote(username, target)
+
 
     # def get_session_info(self, session_id: str) -> Dict[str, Any]:
     #     if session_id not in self._sessions:
