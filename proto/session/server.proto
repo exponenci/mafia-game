@@ -1,0 +1,113 @@
+syntax = "proto3";
+
+service IServer {
+    /* по имени и id клиента регистрируем его в нашем сервере */
+    rpc ConnectClient(TPingRequest) returns (TPingResponse) {}
+
+    rpc DisconnectClient(TPingRequest) returns (TPingResponse) {}
+
+    rpc GetOnlinePlayers(TPingRequest) returns (stream TPingResponse) {}
+
+    // /* по id клиента получаем информацию про его сессию: 
+    //     настройки сессии (кол-во игроков, мафии), статус (жив/мертв) и имена самих игроков*/
+    // rpc GetSessionInfo(TGetSessionInfoRequest) returns (TGetSessionInfoResponse) {}
+
+    // /*по настройкам сессии создается сессия - ей назначается id, 
+    // клиент получает id сессии*/
+    // rpc StartSession(TStartSessionRequest) returns (stream TStartSessionResponse) {}
+
+    // /* добавить нового клиента в данную сессию 
+    //   сервер уведомляет о новом участнике всем участникам сессии */
+    // rpc AddMemberToSession(TAddMemberToSessionRequest) returns (stream TAddMemberToSessionResponse) {}
+
+    // /* клиент подписывается на уведомления (новые участники+выбор игрока+голосование+тп) по id сессии*/
+    // rpc SubscribeForNotifications(TSubscribeRequest) returns (stream TNotification) {}
+
+    // /* 1 день: говорим о количестве игроков, желаем удачи
+    //    ночь: 
+    //     - мафия просыпается и голосует - сервер собирает голоса и убивает
+    //     - комиссар просыпается и голосует - сервер отвечает кто мафия
+    //    днем:
+    //     - объявляем кто убит - сервер обновляет статусы игроков
+    //     - мирные голосует и объявляем итоги - сервер собирает голоса и убивает одного */
+    // rpc SessionMove(stream TSessionMoveRequest) returns (stream TSessionMoveResponse) {}
+}
+
+message TRegisterClientRequest {
+    string username = 1;
+}
+
+message TRegisterClientResponse {
+    string message = 1; // either error message or ok message
+}
+
+message TPingRequest {
+    string username = 1;
+}
+
+message TPingResponse {
+    string message = 1;
+}
+
+message TGetSessionInfoRequest {
+    string username = 1;
+}
+
+message TGetSessionInfoResponse {
+    string message = 1;
+    optional string session_id = 2;
+    optional int32 players_count = 3;
+    optional int32 mafia_count = 4;
+    repeated string clients = 5;
+
+}
+
+message TStartSessionRequest {
+    string username = 1;
+    int32 players_count = 2;
+    int32 mafia_count = 3;
+}
+
+enum Role {
+    Undefined = 0;
+    Mafia = 1;
+    Citizen = 2;
+    Commissar = 3;
+}
+
+message TStartSessionResponse {
+    string message = 1;
+    oneof response {
+        string session_id = 2;
+        Role role = 3;
+    }
+}
+
+message TAddMemberToSessionRequest {
+    string username = 1;
+    string session_id = 2;
+}
+
+message TAddMemberToSessionResponse {
+    string message = 1;
+    optional Role role = 2;
+}
+
+message TSubscribeRequest {
+    string username = 1;
+    string session_id = 2;    
+}
+
+message TNotification {
+    string notification = 1;
+}
+
+message TSessionMoveRequest {
+    string username = 1;
+    string vote_for = 2;
+    string sesion_id = 3;
+}
+
+message TSessionMoveResponse {
+    string message = 1;
+}
