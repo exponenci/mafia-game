@@ -43,12 +43,11 @@ class GrpcClientStub:
             username=self._username
         ))
         async for notif in notifications:
-            print(notif)
             if notif.type == core_pb2.TSystemNotification.REGULAR_MESSAGE:
                 self._core.print(notif.message)
                 if self._core.session_id == '':
-                    await asyncio.sleep(1)
-                    os.system('clear')
+                    await asyncio.sleep(0.5) # set 0.5 for auto-test case, increase if want to read messages 
+                    # os.system('clear') # uncomment if want clear output for each core-notification
             elif notif.type == core_pb2.TSystemNotification.SESSION_INFO_MESSAGE:
                 session_info: core_pb2.TSystemNotification.SessionInfo = notif.session_info
                 self._core.set_session_info(
@@ -72,7 +71,6 @@ class GrpcClientStub:
                     data[client.username] = (client.alive, self.match_role(client.role))
                 self._core.print_result(notif.result.citizens_wins, data)
             await asyncio.sleep(0.1)
-            print('kekekek')
 
     async def _new_session(self):
         response = await self._stub.WaitInQueue(core_pb2.TPingRequest(
@@ -87,7 +85,6 @@ class GrpcClientStub:
             vote_for=vote_for,
             session_id=self._core.session_id
         ))
-        self._core.print('pick: ' + response.message)
         if response.message:
             self._core.print('pick: ' + response.message)
 
@@ -102,16 +99,13 @@ class GrpcClientStub:
         self._core.print('See you soon!')
 
     async def _run_sessions(self):
-        print("RUN SESSIONS")
         if self._core.username == '':
             raise RuntimeError('client must be connected!')
         witsh_to_exit = False
         while not witsh_to_exit:
-            print("START RUN:", witsh_to_exit)
             while self._core.turn == '':
                 await asyncio.sleep(1)
             async for cmd in self._core.run():
-                print(cmd)
                 if cmd['cmd'] == '!new':
                     await self._new_session()
                 elif cmd['cmd'] == '!pick':
@@ -120,7 +114,7 @@ class GrpcClientStub:
                     witsh_to_exit = True
                     await self._disconnect_client()
                     break
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.1)
 
     async def stack_tasks(self):
         task_group = asyncio.gather(

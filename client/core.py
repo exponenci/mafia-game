@@ -101,17 +101,13 @@ class ClientCore:
         self.voted = False
 
     async def run(self) -> Iterable[Dict[str, str]]:
-        print("RUN")
         while self.session_id != '':
-            # print("TURN", self.turn)
             if not self.voted and self.alive and (self.turn == self.role or self.turn == 'Citizen'):
                 data = simulate_input_session(self.vote_options)
-                # self.print('!pick')
-                print("YOUR DATA:", data, self.username)
                 if 'arg' in data:
-                    self.print(data['cmd'] + data['arg'])
+                    self.print(data['cmd'] + ' ' + data['arg'], self.username)
                 else:
-                    self.print(data['cmd'])
+                    self.print(data['cmd'], self.username)
                 if data['cmd'].startswith('!'):
                     if data['cmd'] == '!help':
                         self.print(self.HELP_CMD_RESPONSE_MSG)

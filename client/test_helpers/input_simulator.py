@@ -16,6 +16,9 @@ def simulate_input_session(vote_options: str):
 
 def simulate_input_core():
     return '!exit'
+    # if you enable !new option for core-input
+    # make sure, that eventually client will be able to find
+    # someone to play with or exit
     core_cmds = ['!new', '!exit']
     cmd = random.choice(core_cmds)
     return {'cmd': cmd}

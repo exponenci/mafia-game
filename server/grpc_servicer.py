@@ -13,14 +13,10 @@ class GrpcCoreServicer(core_pb2_grpc.GameCoreServicer):
 
     @staticmethod
     def match_role(role: Role):
-        print("SERVER_MATCHING_ROLE:", role)
-        print(role == Role.MAFIA, role, Role.MAFIA, Role.CITIZEN, Role.COMMISSAR)
         if role == Role.MAFIA:
-            print("RETURNING MAFIA")
             return core_pb2.TSystemNotification.MAFIA_ROLE
         elif role == Role.COMMISSAR:
             return core_pb2.TSystemNotification.COMMISSAR_ROLE
-        print("RETURNING CITIZEN", role)
         return core_pb2.TSystemNotification.CITIZEN_ROLE
 
     async def ConnectClient(self, 
@@ -66,16 +62,10 @@ class GrpcCoreServicer(core_pb2_grpc.GameCoreServicer):
                     )
                 )
             elif notif.type == notif.NotificationType.TURN_INFO:
-                print()
-                print("=" * 50)
-                print(notif)
-                print("=" * 50)
-                print()
                 target_role = notif.data.get('target_role')
                 if target_role is not None:
                     target_role = self.match_role(target_role)
-                print(self.match_role(notif.data['turn']))
-                upd = core_pb2.TSystemNotification(
+                yield core_pb2.TSystemNotification(
                     type=core_pb2.TSystemNotification.TURN_INFO_MESSAGE,
                     turn_info=core_pb2.TSystemNotification.TurnInfo(
                         turn=self.match_role(notif.data['turn']),
@@ -84,8 +74,6 @@ class GrpcCoreServicer(core_pb2_grpc.GameCoreServicer):
                         target_role=target_role,
                     )
                 )
-                print(upd)
-                yield upd
             elif notif.type == notif.NotificationType.RESULT:
                 clients = list(
                     map(

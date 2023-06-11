@@ -1,0 +1,93 @@
+$core> Set your username below
+$unauth> NTBEM
+$core> Welcome, NTBEM!
+$core> Session found...
+$session> You are connected to session#2K3JPE
+$session> Your role: Mafia
+$session> Players in session:
+$session> - KXBA8
+$session> - 3C26J
+$session> - NTBEM
+$session> - 2ZTBD
+$session> The night is coming...
+$session> Mafia's turn...
+$session> pick someone from options below
+$session> - 2ZTBD
+$session> - 3C26J
+$session> - KXBA8
+$NTBEM> !skip
+$NTBEM> !status
+$session> Role: Mafia. Status: alive
+$NTBEM> !status
+$session> Role: Mafia. Status: alive
+$NTBEM> !tab
+$session> Players:
+$session>  - KXBA8 is alive
+$session>  - 3C26J is alive
+$session>  - NTBEM is alive
+$session>  - 2ZTBD is alive
+$NTBEM> !pick 3C26J
+$session> 3C26J was killed! He was Citizen...
+$session> Commissar's turn...
+$session> The player who was checked by commissar is Citizen!
+$session> Good morning everyone!
+$session> Citizen's turn...
+$session> pick someone from options below
+$session> - KXBA8
+$session> - 2ZTBD
+$session> - NTBEM
+$NTBEM> !skip
+$NTBEM> !skip
+$NTBEM> !pick 2ZTBD
+$session> Citizen's turn...
+$session> pick someone from options below
+$session> - NTBEM
+$session> - KXBA8
+$session> - 2ZTBD
+$session> There are several candidates with equal max vote-counts... Revote is required!
+$NTBEM> !help
+$session> 
+ Session commands:
+       !tab            shows session info
+       !status         shows your role and status
+       !pick <name>    vote for/pick <name> for poll
+       !skip           skip vote
+       !clear          clears terminal
+    
+ Core commands (runs only after the session is over):
+       !new            stay in queue to new session
+       !exit           exit
+    
+$NTBEM> !help
+$session> 
+ Session commands:
+       !tab            shows session info
+       !status         shows your role and status
+       !pick <name>    vote for/pick <name> for poll
+       !skip           skip vote
+       !clear          clears terminal
+    
+ Core commands (runs only after the session is over):
+       !new            stay in queue to new session
+       !exit           exit
+    
+$NTBEM> !tab
+$session> Players:
+$session>  - KXBA8 is alive
+$session>  - 3C26J is alive
+$session>  - NTBEM is alive
+$session>  - 2ZTBD is alive
+$NTBEM> !pick NTBEM
+$session> Invalid !pick param... Pick from given options and not yourself
+$NTBEM> !pick 2ZTBD
+$session> Mafia's turn...
+$session> pick someone from options below
+$session> - KXBA8
+$session> ===  GAME OVER!   ===
+$session> ===  MAFIA WINS!  ===
+$session> - KXBA8 is alive [Commissar]
+$session> - 3C26J is dead [Citizen]
+$session> - NTBEM is alive [Mafia]
+$session> - 2ZTBD is dead [Citizen]
+$NTBEM> !exit
+$core> See you soon!

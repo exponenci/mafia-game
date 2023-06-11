@@ -145,7 +145,6 @@ class Session:
 
         kwargs['turn'] = self.turn
         kwargs['vote_options'] = list(self.vote_pool.target_votes.keys())
-        print(kwargs)
         self.notifications.append(Notification(
             data=kwargs,
             type=Notification.NotificationType.TURN_INFO,
@@ -176,9 +175,7 @@ class Session:
         while not self.session_is_over or notif_i < len(self.notifications):
             while notif_i < len(self.notifications):
                 notif: Notification = self.notifications[notif_i]
-                print("SENDING NOTIF")
                 if notif.receiver == 'all':
-                    print(notif)
                     if notif.type == Notification.NotificationType.TURN_INFO:
                         # we don't want send options to all clients, only to the appropriate ones
                         if (role != Role.MAFIA and notif.data['turn'] == Role.MAFIA) or \
@@ -186,7 +183,6 @@ class Session:
                             copy_data = notif.data.copy()
                             copy_data['vote_options'] = []
                             modified_notif = Notification(copy_data, notif.type, notif.receiver)
-                            print('MODIFIED', modified_notif)
                             yield modified_notif
                         else:
                             yield notif
@@ -201,20 +197,15 @@ class Session:
             await asyncio.sleep(1)
 
     async def accept_vote(self, username: str, target: str):
-        print("ACCEPT VOTE FROM", username, "TO", target)
         if self.session_is_over:
-            print("BROKE 1")
             return {
                 'message': 'Session is over!'
             }
         if not self.vote_pool.accept_vote(username, target):
-            print("BROKE 2")
             return {
                 'message': 'Invalid vote params! Check your username and the one you are picking!'
             }
-        print("CONT")
         if self.vote_pool.is_full():
-            print("IS FULL")
             if self.vote_pool.is_valid():
                 target_username = self.vote_pool.get_poll_result()
                 target_role = self.roles_distribution[target_username]
