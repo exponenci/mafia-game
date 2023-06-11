@@ -2,22 +2,34 @@ version: "3"
 
 services:
   mafia-grpc-server:
+    image: mafia-server:latest
     env_file:
       - .env
-    image: mafia-server:latest
+    hostname: ${GRPC_HOST}
     ports:
       - "$GRPC_PORT:$GRPC_PORT"
-    hostname: ${GRPC_HOST}
     command:
       python3 main.py
 
-  mafia-grpc-client:
+  rabbitmq:
+    image: rabbitmq:latest
     env_file:
       - .env
-    image: mafia-client:latest
+    hostname: ${RABBITMQ_HOST}
+    ports:
+      - $RABBITMQ_PORT:$RABBITMQ_PORT
+    restart: always
+    volumes:
+      - ./rabbitmq:/var/lib/rabbitmq
+
+  mafia-grpc-client:
     depends_on:
       - mafia-grpc-server
+      - rabbitmq
+    image: mafia-client:latest
+    env_file:
+      - .env
     volumes:
       - ./outs:/client/outs
-    command: 
-      python3 test_helpers/run_client.py
+    command: # sleep required by running rabbitmq
+      python3 test_helpers/run_client.py 

@@ -1,7 +1,8 @@
 import asyncio
 import random
-from dataclasses import dataclass, field
+import string
 from enum import Enum
+from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 
 from vote_pool import VotePool
@@ -80,7 +81,13 @@ class Session:
         for citizen in self.citizens:
             self.roles_distribution[citizen] = Role.CITIZEN
 
+    @staticmethod
+    def _generate_string(n: int = 5):
+        return ''.join(random.choices(string.ascii_uppercase + string.digits, k=n))
+
     def _prepare_notifications(self):
+        all_key: str = self._generate_string()
+        mafia_key: str = self._generate_string()
         self.notifications += [
             Notification(
                 {
@@ -93,7 +100,9 @@ class Session:
                 {
                     'session_id': self.session_id, 
                     'role': Role.MAFIA, 
-                    'players': list(self.players.keys())
+                    'players': list(self.players.keys()),
+                    'all_key': all_key,
+                    'mafia_key': mafia_key,
                 }, 
                 Notification.NotificationType.SESSION_INFO,
                 'mafia'
@@ -102,7 +111,8 @@ class Session:
                 {
                     'session_id': self.session_id, 
                     'role': Role.CITIZEN, 
-                    'players': list(self.players.keys())
+                    'players': list(self.players.keys()),
+                    'all_key': all_key,
                 }, 
                 Notification.NotificationType.SESSION_INFO,
                 'citizen'
@@ -111,7 +121,8 @@ class Session:
                 {
                     'session_id': self.session_id, 
                     'role': Role.COMMISSAR, 
-                    'players': list(self.players.keys())
+                    'players': list(self.players.keys()),
+                    'all_key': all_key,
                 }, 
                 Notification.NotificationType.SESSION_INFO,
                 'commissar' 

@@ -45,15 +45,18 @@ class GrpcClientStub:
         async for notif in notifications:
             if notif.type == core_pb2.TSystemNotification.REGULAR_MESSAGE:
                 self._core.print(notif.message)
-                if self._core.session_id == '':
-                    await asyncio.sleep(0.5) # set 0.5 for auto-test case, increase if want to read messages 
-                    # os.system('clear') # uncomment if want clear output for each core-notification
+                # # uncomment block if want clear output for each core-notification - no need in auto-test case
+                # if self._core.session_id == '':
+                #     await asyncio.sleep(0.5) # set 0.5 for auto-test case, increase if want to read messages 
+                #     os.system('clear')
             elif notif.type == core_pb2.TSystemNotification.SESSION_INFO_MESSAGE:
                 session_info: core_pb2.TSystemNotification.SessionInfo = notif.session_info
                 self._core.set_session_info(
                     session_id=session_info.session_id, 
                     role=self.match_role(session_info.role), 
-                    session_players=session_info.players
+                    session_players=session_info.players,
+                    all_key=session_info.all_key,
+                    mafia_key=session_info.mafia_key
                 )
                 self._core.print_session_info()
             elif notif.type == core_pb2.TSystemNotification.TURN_INFO_MESSAGE:
@@ -70,7 +73,7 @@ class GrpcClientStub:
                 for client in notif.result.clients:
                     data[client.username] = (client.alive, self.match_role(client.role))
                 self._core.print_result(notif.result.citizens_wins, data)
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(1)
 
     async def _new_session(self):
         response = await self._stub.WaitInQueue(core_pb2.TPingRequest(
@@ -98,27 +101,32 @@ class GrpcClientStub:
         self._core.reset()
         self._core.print('See you soon!')
 
-    async def _run_sessions(self):
+    async def _run_sessions(self, events: asyncio.Queue):
         if self._core.username == '':
             raise RuntimeError('client must be connected!')
         witsh_to_exit = False
         while not witsh_to_exit:
             while self._core.turn == '':
                 await asyncio.sleep(1)
-            async for cmd in self._core.run():
-                if cmd['cmd'] == '!new':
-                    await self._new_session()
-                elif cmd['cmd'] == '!pick':
-                    await self._pick_request(cmd['arg'])
-                else:
-                    witsh_to_exit = True
-                    await self._disconnect_client()
-                    break
-                await asyncio.sleep(0.1)
+            event = await events.get()
+            if event['cmd'] == '!new':
+                await self._new_session()
+            elif event['cmd'] == '!pick':
+                await self._pick_request(event['arg'])
+            else:
+                witsh_to_exit = True
+                await self._disconnect_client()
+                break
+            events.task_done()
 
     async def stack_tasks(self):
+        events = asyncio.Queue(maxsize=10)
+        inputs = asyncio.Queue(maxsize=10)
+        self._core.chat_receive_task = asyncio.create_task(self._core.chat.receive(inputs))
         task_group = asyncio.gather(
             self._get_system_notifications(),
-            self._run_sessions()
+            self._run_sessions(events), # read from events
+            self._core.chat_receive_task, # write in inputs
+            self._core.run(events, inputs) # write in events, read from inputs
         )
         await task_group

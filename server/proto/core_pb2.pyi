@@ -41,14 +41,18 @@ class TSystemNotification(_message.Message):
     class Role(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = []
     class SessionInfo(_message.Message):
-        __slots__ = ["players", "role", "session_id"]
+        __slots__ = ["all_key", "mafia_key", "players", "role", "session_id"]
+        ALL_KEY_FIELD_NUMBER: _ClassVar[int]
+        MAFIA_KEY_FIELD_NUMBER: _ClassVar[int]
         PLAYERS_FIELD_NUMBER: _ClassVar[int]
         ROLE_FIELD_NUMBER: _ClassVar[int]
         SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+        all_key: str
+        mafia_key: str
         players: _containers.RepeatedScalarFieldContainer[str]
         role: TSystemNotification.Role
         session_id: str
-        def __init__(self, session_id: _Optional[str] = ..., role: _Optional[_Union[TSystemNotification.Role, str]] = ..., players: _Optional[_Iterable[str]] = ...) -> None: ...
+        def __init__(self, session_id: _Optional[str] = ..., role: _Optional[_Union[TSystemNotification.Role, str]] = ..., players: _Optional[_Iterable[str]] = ..., all_key: _Optional[str] = ..., mafia_key: _Optional[str] = ...) -> None: ...
     class SessionResult(_message.Message):
         __slots__ = ["citizens_wins", "clients"]
         class Client(_message.Message):

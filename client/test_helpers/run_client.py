@@ -1,16 +1,7 @@
-# import os
-# import sys
-# import inspect
-
-# currentdir = os.path.dirname(
-#     os.path.abspath(inspect.getfile(inspect.currentframe())))
-# parentdir = os.path.dirname(currentdir)
-# sys.path.insert(0, parentdir)
-
 from subprocess import Popen, PIPE, STDOUT
 import random
 import string
-
+import time
 
 def generate_string(n: int = 5):
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=n))
@@ -29,4 +20,5 @@ def run_client():
         f.write(out)
 
 if __name__ == '__main__':
+    time.sleep(15) # required time for rabbitmq warmup
     run_client()

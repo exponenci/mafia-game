@@ -58,7 +58,9 @@ class GrpcCoreServicer(core_pb2_grpc.GameCoreServicer):
                     session_info=core_pb2.TSystemNotification.SessionInfo(
                         session_id=notif.data['session_id'],
                         role=self.match_role(notif.data['role']),
-                        players=notif.data['players']
+                        players=notif.data['players'],
+                        all_key=notif.data['all_key'],
+                        mafia_key=notif.data.get('mafia_key')
                     )
                 )
             elif notif.type == notif.NotificationType.TURN_INFO:

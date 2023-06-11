@@ -36,6 +36,8 @@ message TSystemNotification {
         string session_id = 1;
         Role role = 2; 
         repeated string players = 3;
+        string all_key = 4;
+        optional string mafia_key = 5;
     }
     message TurnInfo {
         Role turn = 1;

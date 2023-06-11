@@ -4,18 +4,23 @@ from typing import Iterable, List, Optional, Tuple, Dict
 from dataclasses import dataclass, field
 
 from test_helpers.input_simulator import simulate_input_core, simulate_input_session
-
+from async_chat import Chat
 
 @dataclass
 class ClientCore:
     # session info for client
     username: str = ''
+    session_found: bool  = False
     session_id: str = ''
     role: str = ''
     alive: bool = True
     voted: bool = False
     session_players: List[str] = field(default_factory=list) # username
     killed_players: List[Tuple[str, str]] = field(default_factory=list) # username, role
+
+    # chat
+    chat: Optional[Chat] = None
+    chat_receive_task = None
 
     # turn info
     turn: str = ''
@@ -34,7 +39,10 @@ class ClientCore:
        !exit           exit
     """
 
-    def print(self, line, prefix: str = ''):
+    def print(self, line, prefix: str = '', fwd_msg: bool = False):
+        if fwd_msg:
+            print(line, flush=True)
+            return
         if prefix == '':
             if self.session_id == '':
                 prefix = 'core'
@@ -80,6 +88,7 @@ class ClientCore:
     
     def reset(self):
         self.session_id = ''
+        self.session_found = False
         self.role = ''
         self.alive = True
         self.voted = False
@@ -87,10 +96,19 @@ class ClientCore:
         self.prev_turn = ''
         self.target = None
         self.vote_options = None
+        self.chat.reset()
 
     def set_session_info(self, **kwargs):
         for attr, value in kwargs.items():
+            if attr.endswith('key'):
+                continue
             setattr(self, attr, value)
+        self.chat.set(
+            queue_id=self.session_id,
+            mafia_key=kwargs.get('mafia_key'),
+            all_key=kwargs.get('all_key')
+        )
+        self.session_found = True
 
     def set_turn_info(self, **kwargs):
         self.prev_turn = self.turn
@@ -100,15 +118,20 @@ class ClientCore:
             self.alive = False
         self.voted = False
 
-    async def run(self) -> Iterable[Dict[str, str]]:
+    async def run(self, events: asyncio.Queue, inputs: asyncio.Queue):
+        while not self.session_found:
+            await asyncio.sleep(1)
         while self.session_id != '':
+            while inputs.qsize() > 0:
+                self.print(await inputs.get(), fwd_msg=True)
+                inputs.task_done()
             if not self.voted and self.alive and (self.turn == self.role or self.turn == 'Citizen'):
                 data = simulate_input_session(self.vote_options)
                 if 'arg' in data:
                     self.print(data['cmd'] + ' ' + data['arg'], self.username)
-                else:
+                elif 'cmd' in data:
                     self.print(data['cmd'], self.username)
-                if data['cmd'].startswith('!'):
+                if data.get('cmd') is not None and data['cmd'].startswith('!'):
                     if data['cmd'] == '!help':
                         self.print(self.HELP_CMD_RESPONSE_MSG)
                     elif data['cmd'] == '!tab':
@@ -124,22 +147,31 @@ class ClientCore:
                     elif data['cmd'] == '!pick':
                         if data['arg'] != self.username and data['arg'] in self.vote_options:
                             self.voted = True
-                            yield data
+                            await events.put(data)
                         else:
                             self.print('Invalid !pick param... Pick from given options and not yourself')
                     elif data['cmd'] == ['!skip']:
                         self.voted = True
-                        yield {'cmd': '!pick', 'arg': ''}
+                        await events.put({'cmd': '!pick', 'arg': ''})
                     elif data['cmd'] == '!clear':
                         os.system('clear')
+                else:
+                    if self.turn == 'Citizen':
+                        await self.chat.send_all(f'${self.username}> {data["message"]}')
+                    elif self.turn == 'Mafia':
+                        await self.chat.send_mafia(f'${self.username}> {data["message"]}')
             if self.turn == 'over':
                 data = simulate_input_core()
                 self.print(data, self.username)
                 if data == '!new':
+                    await self.chat.stop_receiving()
                     self.reset()
-                    yield {'cmd': data}
+                    await events.put({'cmd': data})
+                    self.chat_receive_task.cancel()
                     break
                 elif data == '!exit':
-                    yield {'cmd': data}
+                    await events.put({'cmd': data})
+                    await self.chat.stop_receiving()
+                    self.chat_receive_task.cancel()
                     break
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.05)

@@ -1,0 +1,97 @@
+$core> Set your username below
+$unauth> FVXYM
+$core> Welcome, FVXYM!
+$core> Session found...
+$session> You are connected to session#W4QL5Q
+$session> Your role: Citizen
+$session> Players in session:
+$session> - 2AUKF
+$session> - TJ0Z9
+$session> - CV5T8
+$session> - FVXYM
+$session> The night is coming...
+$session> Mafia's turn...
+$session> TJ0Z9 was killed! He was Commissar...
+$session> Good morning everyone!
+$session> Citizen's turn...
+$session> pick someone from options below
+$session> - 2AUKF
+$session> - FVXYM
+$session> - CV5T8
+$FVXYM> !tab
+$session> Players:
+$session>  - 2AUKF is alive
+$session>  - TJ0Z9 is alive
+$session>  - CV5T8 is alive
+$session>  - FVXYM is alive
+$FVXYM> random message shrill
+$FVXYM> random message lamentable
+$FVXYM> random message glossy
+$FVXYM> !help
+$session> 
+ Session commands:
+       !tab            shows session info
+       !status         shows your role and status
+       !pick <name>    vote for/pick <name> for poll
+       !skip           skip vote
+       !clear          clears terminal
+    
+ Core commands (runs only after the session is over):
+       !new            stay in queue to new session
+       !exit           exit
+    
+$FVXYM> !pick FVXYM
+$session> Invalid !pick param... Pick from given options and not yourself
+$2AUKF> random message arch
+$FVXYM> random message ants
+$CV5T8> random message shrill
+$FVXYM> !help
+$session> 
+ Session commands:
+       !tab            shows session info
+       !status         shows your role and status
+       !pick <name>    vote for/pick <name> for poll
+       !skip           skip vote
+       !clear          clears terminal
+    
+ Core commands (runs only after the session is over):
+       !new            stay in queue to new session
+       !exit           exit
+    
+$2AUKF> random message message
+$CV5T8> random message wrathful
+$FVXYM> random message picayune
+$2AUKF> random message picayune
+$CV5T8> random message wrathful
+$FVXYM> !tab
+$session> Players:
+$session>  - 2AUKF is alive
+$session>  - TJ0Z9 is alive
+$session>  - CV5T8 is alive
+$session>  - FVXYM is alive
+$FVXYM> random message glossy
+$CV5T8> random message boil
+$FVXYM> random message message
+$FVXYM> !pick CV5T8
+$CV5T8> random message practice
+$2AUKF> random message lamentable
+$2AUKF> random message argue
+$2AUKF> random message arch
+$2AUKF> random message glossy
+$2AUKF> random message task
+$2AUKF> random message obsequious
+$2AUKF> random message practice
+$2AUKF> random message argue
+$2AUKF> random message argue
+$2AUKF> random message argue
+$2AUKF> random message different
+$2AUKF> random message wrathful
+$session> Mafia's turn...
+$session> ===  GAME OVER!   ===
+$session> === CITIZENS WIN! ===
+$session> - 2AUKF is alive [Citizen]
+$session> - TJ0Z9 is dead [Commissar]
+$session> - CV5T8 is dead [Mafia]
+$session> - FVXYM is alive [Citizen]
+$FVXYM> !exit
+$core> See you soon!
