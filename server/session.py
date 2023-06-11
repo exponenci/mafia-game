@@ -1,33 +1,28 @@
+import asyncio
+import random
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 
-from player import Player, Role
-import random
-import asyncio
+from vote_pool import VotePool
+
 
 PLAYERS_COUNT = 4
 MAFIA_COUNT = 1
 
-# class SessionStatus(Enum):
-#     START_GAME = 1
-#     MAFIA_TURN = 2
-#     COMMISSAR_TURN = 3
-#     CITIZENS_TURN = 4 # all players turn
-#     GAME_OVER = 5
 
-# STATUS_TYPENAME = {
-#     SessionStatus.CITIZENS_TURN: 'citizen',
-#     SessionStatus.MAFIA_TURN: 'mafia',
-#     SessionStatus.COMMISSAR_TURN: 'commissar',
-# }
-   
-# STATUS_ROLE = {
-#     SessionStatus.START_GAME: Role.CITIZEN,
-#     SessionStatus.CITIZENS_TURN: Role.CITIZEN,
-#     SessionStatus.MAFIA_TURN: Role.MAFIA,
-#     SessionStatus.COMMISSAR_TURN: Role.COMMISSAR,
-# }
+class Role(Enum):
+    MAFIA = 1
+    CITIZEN = 2
+    COMMISSAR = 3
+
+
+@dataclass
+class Player:
+    username: str
+    session_id: Optional[str] = None
+
+    accept_core_notifications: bool = True
 
 
 @dataclass
@@ -44,53 +39,12 @@ class Notification:
 
 
 @dataclass
-class VotePool:
-    votes_count: int = 0
-    expect_votes_count: int = 0
-    expect_votes: Dict[str, bool] = field(default_factory=dict) # username - is_voted
-    target_votes: Dict[str, int] = field(default_factory=dict) # target - how many votes
-
-    def reset(self, voters_list: List[str], options_list: List[str]):
-        self.votes_count = 0
-        self.expect_votes_count = len(voters_list)
-        self.expect_votes = dict(zip(voters_list, [False for _ in range(len(voters_list))]))
-        random.shuffle(options_list)
-        self.target_votes = dict(zip(options_list, [0 for _ in range(len(options_list))]))
-        # print("NEW VOTE POOL:", self.target_votes, self.expect_votes)
-
-    def accept_vote(self, username: str, target: str):
-        if username in self.expect_votes and \
-                not self.expect_votes[username] and\
-                (target in self.target_votes or target == ''):
-            self.expect_votes[username] = True
-            if target != '':
-                self.target_votes[target] += 1
-            self.votes_count += 1
-            return True
-        return False
-    
-    def is_full(self) -> bool:
-        return self.expect_votes_count == 1 or \
-            self.votes_count == self.expect_votes_count
-
-    def is_valid(self) -> bool:
-        if self.expect_votes_count == 1:
-            return True
-        votes = sorted(list(self.target_votes.values()))
-        return votes[-1] != votes[-2]
-
-    def get_poll_result(self) -> str: # username
-        return sorted(list(self.target_votes.items()), key=lambda item: item[1])[-1][0]
-
-
-@dataclass
 class Session:
     session_id: str
     players: Dict[str, Player] = field(default_factory=dict) # players pool
 
     turn: Role = Role.CITIZEN
     session_is_over: bool = False
-    # status: SessionStatus = SessionStatus.START_GAME # sessoin status
     notifications: List[Notification] = field(default_factory=list) # session notifications [notification, receiver group]
 
     roles_distribution: Dict[str, Role] = field(default_factory=dict) # roles for players
@@ -106,13 +60,6 @@ class Session:
         Role.MAFIA: Role.COMMISSAR,
         Role.COMMISSAR: Role.CITIZEN,
     }
-
-    # next_status_map = {
-    #     SessionStatus.START_GAME: SessionStatus.MAFIA_TURN,
-    #     SessionStatus.CITIZENS_TURN: SessionStatus.MAFIA_TURN,
-    #     SessionStatus.MAFIA_TURN: SessionStatus.COMMISSAR_TURN,
-    #     SessionStatus.COMMISSAR_TURN: SessionStatus.CITIZENS_TURN,
-    # }
 
     def preprocess(self):
         self._distribute_roles()

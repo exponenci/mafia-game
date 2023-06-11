@@ -1,27 +1,12 @@
-import os
-import sys
-import inspect
-import asyncio
+from typing import AsyncIterable
 
-currentdir = os.path.dirname(
-    os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-sys.path.insert(0, parentdir)
-sys.path.insert(0, parentdir + '/proto')
-
-from typing import List, Dict, AsyncIterable
-
-import proto.server_pb2 as core_server
-import proto.server_pb2_grpc as core_server_grpc
-
-from server.core import Core 
-from server.session import Player, Session, Notification, Role
-
-from concurrent import futures
-from grpc import aio
+from core import Core 
+from session import Role
+import proto.core_pb2 as core_pb2
+import proto.core_pb2_grpc as core_pb2_grpc
 
 
-class Server(core_server_grpc.IServerServicer):
+class GrpcCoreServicer(core_pb2_grpc.GameCoreServicer):
     def __init__(self) -> None:
         super().__init__()
         self.core: Core = Core()
@@ -29,49 +14,52 @@ class Server(core_server_grpc.IServerServicer):
     @staticmethod
     def match_role(role: Role):
         print("SERVER_MATCHING_ROLE:", role)
+        print(role == Role.MAFIA, role, Role.MAFIA, Role.CITIZEN, Role.COMMISSAR)
         if role == Role.MAFIA:
-            return core_server.TSystemNotification.MAFIA_ROLE
+            print("RETURNING MAFIA")
+            return core_pb2.TSystemNotification.MAFIA_ROLE
         elif role == Role.COMMISSAR:
-            return core_server.TSystemNotification.COMMISSAR_ROLE
-        return core_server.TSystemNotification.CITIZEN_ROLE
+            return core_pb2.TSystemNotification.COMMISSAR_ROLE
+        print("RETURNING CITIZEN", role)
+        return core_pb2.TSystemNotification.CITIZEN_ROLE
 
     async def ConnectClient(self, 
-                            request: core_server.TPingRequest, 
-                            context) -> core_server.TPingResponse:
+                            request: core_pb2.TPingRequest, 
+                            context) -> core_pb2.TPingResponse:
         result = await self.core.connect_player(request.username)
-        return core_server.TPingResponse(
+        return core_pb2.TPingResponse(
             message=result.get('message')
         )
 
     async def WaitInQueue(self, 
-                          request: core_server.TPingRequest, 
-                          context) -> core_server.TPingResponse:
+                          request: core_pb2.TPingRequest, 
+                          context) -> core_pb2.TPingResponse:
         result = await self.core.wait_in_queue(request.username)
-        return core_server.TPingResponse(
+        return core_pb2.TPingResponse(
             message=result.get('message')
         )
 
     async def DisconnectClient(self, 
-                               request: core_server.TPingRequest, 
-                               context) -> core_server.TPingResponse:
+                               request: core_pb2.TPingRequest, 
+                               context) -> core_pb2.TPingResponse:
         result = await self.core.disconnect_player(request.username)
-        return core_server.TPingResponse(
+        return core_pb2.TPingResponse(
             message=result.get('message')
         )
 
     async def SubscribeForNotifications(self, 
-                                        request: core_server.TPingRequest, 
-                                        context) -> AsyncIterable[core_server.TSystemNotification]:
+                                        request: core_pb2.TPingRequest, 
+                                        context) -> AsyncIterable[core_pb2.TSystemNotification]:
         async for notif in self.core.send_notifications(request.username):
             if notif.type == notif.NotificationType.REGULAR:
-                yield core_server.TSystemNotification(
-                    type=core_server.TSystemNotification.REGULAR_MESSAGE,
+                yield core_pb2.TSystemNotification(
+                    type=core_pb2.TSystemNotification.REGULAR_MESSAGE,
                     message=notif.data['message']
                 )
             elif notif.type == notif.NotificationType.SESSION_INFO:
-                yield core_server.TSystemNotification(
-                    type=core_server.TSystemNotification.SESSION_INFO_MESSAGE,
-                    session_info=core_server.TSystemNotification.SessionInfo(
+                yield core_pb2.TSystemNotification(
+                    type=core_pb2.TSystemNotification.SESSION_INFO_MESSAGE,
+                    session_info=core_pb2.TSystemNotification.SessionInfo(
                         session_id=notif.data['session_id'],
                         role=self.match_role(notif.data['role']),
                         players=notif.data['players']
@@ -87,9 +75,9 @@ class Server(core_server_grpc.IServerServicer):
                 if target_role is not None:
                     target_role = self.match_role(target_role)
                 print(self.match_role(notif.data['turn']))
-                upd = core_server.TSystemNotification(
-                    type=core_server.TSystemNotification.TURN_INFO_MESSAGE,
-                    turn_info=core_server.TSystemNotification.TurnInfo(
+                upd = core_pb2.TSystemNotification(
+                    type=core_pb2.TSystemNotification.TURN_INFO_MESSAGE,
+                    turn_info=core_pb2.TSystemNotification.TurnInfo(
                         turn=self.match_role(notif.data['turn']),
                         vote_options=notif.data.get('vote_options', []),
                         target_username=notif.data.get('target_username'),
@@ -101,7 +89,7 @@ class Server(core_server_grpc.IServerServicer):
             elif notif.type == notif.NotificationType.RESULT:
                 clients = list(
                     map(
-                        lambda el: core_server.TSystemNotification.SessionResult.Client(
+                        lambda el: core_pb2.TSystemNotification.SessionResult.Client(
                             username=el['username'],
                             alive=el['alive'],
                             role=self.match_role(el['role'])
@@ -109,36 +97,22 @@ class Server(core_server_grpc.IServerServicer):
                         notif.data['clients']
                     )
                 )
-                yield core_server.TSystemNotification(
-                    type=core_server.TSystemNotification.RESULT_MESSAGE,
-                    result=core_server.TSystemNotification.SessionResult(
+                yield core_pb2.TSystemNotification(
+                    type=core_pb2.TSystemNotification.RESULT_MESSAGE,
+                    result=core_pb2.TSystemNotification.SessionResult(
                         citizens_wins=notif.data['citizens_wins'],
                         clients=clients
                     )
                 )
     
     async def SessionMove(self, 
-                          request: core_server.TSessionMoveRequest,
-                          context) -> core_server.TSessionMoveResponse:
+                          request: core_pb2.TSessionMoveRequest,
+                          context) -> core_pb2.TSessionMoveResponse:
         result = await self.core.accept_vote(
             request.username,
             request.vote_for,
             request.session_id,
         )
-        return core_server.TSessionMoveResponse(
+        return core_pb2.TSessionMoveResponse(
             message=result.get('message')
         )
-
-
-async def serve():
-    server = aio.server()
-    core_server_grpc.add_IServerServicer_to_server(
-        Server(), server
-    )
-    server.add_insecure_port('[::]:50051')
-    await server.start()
-    await server.wait_for_termination()
-
-
-if __name__ == '__main__':
-    asyncio.run(serve())

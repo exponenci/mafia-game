@@ -1,16 +1,9 @@
-from dataclasses import dataclass
-from enum import Enum
-from typing import List, Dict, Any
-
 import asyncio
-
-from player import Player
-from session import Session, PLAYERS_COUNT, Notification
-
-from threading import Lock
-import threading
 import random
 import string
+from typing import Dict
+
+from session import Session, Notification, Player, PLAYERS_COUNT
 
 
 class Core:

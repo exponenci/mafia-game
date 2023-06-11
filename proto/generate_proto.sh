@@ -7,4 +7,4 @@ python3 -m grpc_tools.protoc \
     --python_out=$here \
     --pyi_out=$here \
     --grpc_python_out=$here \
-    $here/session/server.proto
+    $here/session/core.proto

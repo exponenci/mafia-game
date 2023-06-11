@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-service IServer {
+service GameCore {
     rpc ConnectClient(TPingRequest) returns (TPingResponse) {}
 
     rpc WaitInQueue(TPingRequest) returns (TPingResponse) {}
