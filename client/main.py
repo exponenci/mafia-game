@@ -18,7 +18,9 @@ import proto.core_pb2_grpc as core_pb2_grpc
 
 
 async def main() -> None:
-    async with grpc.aio.insecure_channel('localhost:50051') as channel:
+    grpc_host = os.getenv('GRCP_HOST', 'localhost')
+    grpc_port = os.getenv('GRPC_PORT', '50051')
+    async with grpc.aio.insecure_channel(f'{grpc_host}:{grpc_port}') as channel:
         stub = core_pb2_grpc.GameCoreStub(channel)
         client_core = ClientCore()
         client = GrpcClientStub(stub, client_core)

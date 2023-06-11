@@ -22,7 +22,10 @@ class Core:
         )
 
     def _create_session(self):
-        session_id = self.generate_string_id()
+        while True:
+            session_id = self.generate_string_id()
+            if session_id not in self._sessions:
+                break
 
         session_clients: Dict[str, Player] = dict()
         for _ in range(PLAYERS_COUNT):
