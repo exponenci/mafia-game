@@ -1,0 +1,23 @@
+version: "3"
+
+services:
+  mafia-grpc-server:
+    env_file:
+      - .env
+    image: mafia-server:latest
+    ports:
+      - "$GRPC_PORT:$GRPC_PORT"
+    hostname: ${GRPC_HOST}
+    command:
+      python3 main.py
+
+  mafia-grpc-client:
+    env_file:
+      - .env
+    image: mafia-client:latest
+    depends_on:
+      - mafia-grpc-server
+    volumes:
+      - ./outs:/client/outs
+    command: 
+      python3 test_helpers/run_client.py

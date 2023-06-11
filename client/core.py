@@ -41,9 +41,6 @@ class ClientCore:
             else:
                 prefix = 'session'
         print(f'${prefix}> ' + line, flush=True)
-    
-    def input(self, prefix: str = 'unauth'):
-        return input(f'${prefix}> ').strip()
 
     def print_session_info(self):
         self.print(f'You are connected to session#{self.session_id}')
@@ -61,6 +58,8 @@ class ClientCore:
                 self.print(f'{self.target[0]} was killed! He was {self.target[1]}...')
             elif self.prev_turn == 'Commissar':
                 self.print(f'The player who was checked by commissar is {self.target[1]}!')
+            if self.turn == 'Citizen':
+                self.print(f'Good morning everyone!')
         self.print(f'{self.turn}\'s turn...')
         if self.alive and self.vote_options is not None and \
                 len(self.vote_options) != 0 and \

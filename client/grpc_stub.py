@@ -23,7 +23,8 @@ class GrpcClientStub:
     async def connect_client(self) -> None:
         while True:
             self._core.print('Set your username below')
-            username = self._core.input()
+            username = input()
+            self._core.print(username, prefix='unauth') # to show the input in output
             if len(username) < 3 or not username.isalnum():
                 self._core.print('Set name with 3 and more alnum symbols')
                 continue

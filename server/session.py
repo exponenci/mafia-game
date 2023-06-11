@@ -116,6 +116,13 @@ class Session:
                 Notification.NotificationType.SESSION_INFO,
                 'commissar' 
             ),
+            Notification(
+                {
+                    'message': 'The night is coming...'
+                },
+                Notification.NotificationType.REGULAR,
+                'all'
+            ),
         ]
         for player in self.players.values():
             player.accept_core_notifications = False

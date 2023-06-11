@@ -4,15 +4,12 @@ import inspect
 
 currentdir = os.path.dirname(
     os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-sys.path.insert(0, parentdir)
-sys.path.insert(0, parentdir + '/proto')
-sys.path.insert(0, parentdir + '/test_helpers')
+sys.path.insert(0, currentdir + '/proto')
 
 import asyncio
 from grpc import aio
 
-from server.grpc_servicer import GrpcCoreServicer
+from grpc_servicer import GrpcCoreServicer
 import proto.core_pb2_grpc as core_server_grpc
 
 

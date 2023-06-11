@@ -4,10 +4,7 @@ import inspect
 
 currentdir = os.path.dirname(
     os.path.abspath(inspect.getfile(inspect.currentframe())))
-parentdir = os.path.dirname(currentdir)
-sys.path.insert(0, parentdir)
-sys.path.insert(0, parentdir + '/proto')
-sys.path.insert(0, parentdir + '/test_helpers')
+sys.path.insert(0, currentdir + '/proto')
 
 import asyncio
 import grpc
@@ -18,8 +15,10 @@ import proto.core_pb2_grpc as core_pb2_grpc
 
 
 async def main() -> None:
-    grpc_host = os.getenv('GRCP_HOST', 'localhost')
+    grpc_host = os.getenv('GRPC_HOST', 'localhost')
     grpc_port = os.getenv('GRPC_PORT', '50051')
+    print("HOST:", grpc_host)
+    print("HOST:", grpc_port)
     async with grpc.aio.insecure_channel(f'{grpc_host}:{grpc_port}') as channel:
         stub = core_pb2_grpc.GameCoreStub(channel)
         client_core = ClientCore()
