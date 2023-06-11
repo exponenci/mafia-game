@@ -2,7 +2,7 @@ version: "3"
 
 services:
   mafia-grpc-server:
-    image: mafia-server:latest
+    image: exponenci/mafia-server:latest
     env_file:
       - .env
     hostname: ${GRPC_HOST}
@@ -26,7 +26,7 @@ services:
     depends_on:
       - mafia-grpc-server
       - rabbitmq
-    image: mafia-client:latest
+    image: exponenci/mafia-client:latest
     env_file:
       - .env
     volumes:
