@@ -15,7 +15,7 @@ import asyncio
 
 import logging
 import random
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple, Dict
 
 import grpc
 import proto.server_pb2 as server_pb2
@@ -23,12 +23,13 @@ import proto.server_pb2_grpc as server_pb2_grpc
 from dataclasses import dataclass, field
 
 
+
 @dataclass
 class ClientCore:
     # session info for client
-    username: str
-    session_id: str
-    role: str
+    username: str = ''
+    session_id: str = ''
+    role: str = ''
     alive: bool = True
     voted: bool = False
     session_players: List[str] = field(default_factory=list) # username
@@ -36,102 +37,186 @@ class ClientCore:
 
     # turn info
     turn: str = ''
+    prev_turn: str = ''
     target: Optional[Tuple[str, str]] = None # username, role
-    vote_options: Optional[List[str]] = None
+    vote_options: Optional[List[str]] = None # usernames
+
+    def print(self, line, prefix: str = ''):
+        if prefix == '':
+            if self.session_id == '':
+                os.system('clear')
+                prefix = 'core'
+            else:
+                prefix = 'session'
+        print(f'${prefix}> ' + line, flush=True)
+    
+    def input(self, prefix: str = 'me'):
+        return input(f'${prefix}> ').strip()
 
     def print_session_info(self):
-        print(f'$system> You are connected to session#{self.session_id}', flush=True)
-        print(f'$system> Your role: {self.role}', flush=True)
-        print(f'$system> Other players in session:', flush=True)
+        self.print(f'You are connected to session#{self.session_id}')
+        self.print(f'Your role: {self.role}')
+        self.print(f'Players in session:')
         for player_username in self.session_players:
-            print(f'$system> - {player_username}')
+            self.print(f'- {player_username}')
+
+    def print_turn_info(self):
+        if self.target is not None and self.target[0] != '':
+            if self.prev_turn == 'Citizens':
+                self.print(f'{self.target[0]} was hanged by citizens! He was {self.target[1]}...')
+                self.print(f'The night is coming...')
+            elif self.prev_turn == 'Mafia':
+                self.print(f'{self.target[0]} was killed! He was {self.target[1]}...')
+            elif self.prev_turn == 'Commissar':
+                self.print(f'The player who was checked by commissar is {self.target[1]}!')
+        self.print(f'{self.turn}\'s turn...')
+        if self.alive and self.vote_options is not None and \
+                len(self.vote_options) != 0 and \
+                (self.turn == self.role or self.turn == 'Citizen'):
+            self.print(f'pick someone from options below')
+            for option in self.vote_options:
+                self.print(f'- {option}')
+
+    def print_result(self, citizens_wins: bool, data: dict):
+        self.print(f"===  GAME OVER!   ===")
+        if citizens_wins:
+            self.print(f"=== CITIZENS WIN! ===")
+        else:
+            self.print(f"===  MAFIA WINS!  ===")
+        for username, info in data.items():
+            status = 'alive' if info[0] else 'dead'
+            self.print(f"- {username}-{status}-{info[1]}")
     
-    def set_turn_info(self, **kwargs):
+    def reset(self):
+        self.session_id = ''
+        self.role = ''
+        self.alive = True
+        self.voted = False
+        self.turn = ''
+        self.prev_turn = ''
+        self.target = None
+        self.vote_options = None
+
+    def set_session_info(self, **kwargs):
         for attr, value in kwargs.items():
-            print("SETTING VALUE:", attr, value)
+            setattr(self, attr, value)
+
+    def set_turn_info(self, **kwargs):
+        self.prev_turn = self.turn
+        for attr, value in kwargs.items():
             setattr(self, attr, value)
         if self.target is not None and self.target[0] == self.username:
             self.alive = False
         self.voted = False
-        
-    def print_turn_info(self):
-        if self.target is not None and self.target[0] != '':
-            if self.turn != 'Citizen':
-                print(f'$system> {self.target[0]} was killed! He was {self.target[1]}', flush=True)
-            else:
-                print(f'$system> the player who was checked by commissar is {self.target[1]}')
-        print(f'$system> {self.turn} turn...', flush=True)
-        if self.alive and self.vote_options is not None and (self.turn == self.role or self.turn == 'Citizen'):
-            print(f'$system> pick someone from options below', flush=True)
-            for option in self.vote_options:
-                print(f'$system> - {option}', flush=True)
 
-    async def make_votes(self) -> Iterable[str]: # picked user
-        print("OUTER MAKE VOTES...")
-        while self.turn != 'over' and self.alive: # game is not over
-            print("IN LOOP: ", self.turn, self.role, self.alive)
-            if not self.voted and (self.turn == self.role or self.turn == 'Citizen'):
-                self.voted = True
-                print("MAKE VOTES...")
-                while True:
-                    picked = input(f'$me> ').strip()
-                    if picked != self.username and picked in self.vote_options:
+    async def run(self) -> Iterable[Dict[str, str]]:        
+        # !help = help
+        # !tab = players info (username-alive-Role)
+        # !status = role & is alive
+        # !pick <name> = vote for <name>
+        # !skip = skip vote (at least 1 vote must be provided) ?
+        # !clear = clear terminal
+        # !quit = quit, only when game is over
+        print("RUN")
+        while self.session_id != '':
+            # print("TURN", self.turn)
+            if not self.voted and self.alive and (self.turn == self.role or self.turn == 'Citizen'):
+                data = self.input()
+                # self.print('!pick')
+                print("YOUR DATA:", data)
+                if data.startswith('!'):
+                    data = data.split()
+                    if data[0] == '!help':
+                        self.print('\n !tab            shows session info'
+                                    '\n !status         shows your role and status'
+                                    '\n !pick <name>    vote for/pick <name> for poll'
+                                    '\n !clear          clears terminal'
+                                    '\n !new            stay in queue to new session (only after the session is over)'
+                                    '\n !exit           exit (only after the session is over)')
+                    elif data[0] == '!tab':
+                        self.print('Players:')
+                        killed = dict(self.killed_players)
+                        for username in self.session_players:
+                            if username in killed:
+                                self.print(f' - {username}-killed-{killed[username]}')
+                            else:
+                                self.print(f' - {username}-alive')
+                    elif data[0] == '!status':
+                        status = 'alive' if self.alive else 'dead'
+                        self.print(f'Role: {self.role}. Status: {status}')
+                    elif data[0] == '!pick' and self.turn != 'over' and \
+                            self.alive and not self.voted and \
+                            (self.turn == self.role or self.turn == 'Citizen'):
+                        if data[1] != self.username and data[1] in self.vote_options:
+                            self.voted = True
+                            yield {'cmd': 'pick', 'arg': data[1]}
+                        else:
+                            self.print('Invalid !pick param')
+                    elif data[0] == '!clear':
+                        os.system('clear')
+                    elif data[0] == '!new' and self.turn == 'over':
+                        self.reset()
+                        yield {'cmd': 'new'}
                         break
-                yield picked
-            await asyncio.sleep(1)
-        print('OUT OF MAKE_VOTES')
+                    elif data[0] == '!exit' and self.turn == 'over':
+                        break
+            await asyncio.sleep(5)
+        print("OUTOUTOUTT")
+    # async def make_votes(self) -> Iterable[str]: # picked user
+    #     while self.turn != 'over' and self.alive: # game is not over
+    #         if not self.voted and (self.turn == self.role or self.turn == 'Citizen'):
+    #             self.voted = True
+    #             while True:
+    #                 picked = input(f'$me> ').strip()
+    #                 if picked != self.username and picked in self.vote_options:
+    #                     break
+    #             yield picked
+    #         await asyncio.sleep(1)
 
 
 class Client:
-    def __init__(self, stub: server_pb2_grpc.IServerStub) -> None:
+    def __init__(self, stub: server_pb2_grpc.IServerStub, core: ClientCore) -> None:
         self._stub: server_pb2_grpc.IServerStub = stub
         self._username: str = ''
-        self._core: Optional[ClientCore] = None
-
-    async def connect_client(self) -> None:
-        print("-------------- CONNECT --------------")
-        while True:
-            username = input('set your username: ').strip()
-            if len(username) < 3 or re.search(r"\s", username):
-                print('invalid name, set another please...')
-                continue
-            response = await self._stub.ConnectClient(server_pb2.TPingRequest(username=username)) 
-            print(response.message, flush=True)
-            if not response.message.startswith('error'):
-                break
-        self._username = username
-        print("CONNECTED")
-
-    async def disconnect_client(self) -> None:
-        print("-------------- DISCONNECT --------------")
-        i = 0
-        while True:
-            await asyncio.sleep(1)
-            i += 1
-        response = await self._stub.DisconnectClient(server_pb2.TPingRequest(username=self._username)) 
-        print(response.message, flush=True)
-        print("--------------OUT OF DISCONNECT-------------")
+        self._core: ClientCore = core
 
     @staticmethod
     def match_role(role: server_pb2.TSystemNotification.Role):
-        print(role)
+        # print(role)
         if role == server_pb2.TSystemNotification.MAFIA_ROLE:
             return 'Mafia'
         elif role == server_pb2.TSystemNotification.COMMISSAR_ROLE:
             return 'Commissar'
         return 'Citizen'
 
+    async def connect_client(self) -> None:
+        while True:
+            self._core.print('Set your username below')
+            username = self._core.input()
+            if len(username) < 3 or not username.isalnum():
+                self._core.print('Set name with 3 and more alnum symbols')
+                continue
+            response = await self._stub.ConnectClient(server_pb2.TPingRequest(
+                username=username
+            )) 
+            if not response.message:
+                self._core.print(f'Welcome, {username}!')
+                break
+            self._core.print(response.message)
+        self._core.username = username
+        self._username = username
+
     async def _get_system_notifications(self) -> None:
-        notifications = self._stub.SubscribeForNotifications(server_pb2.TPingRequest(username=self._username))
+        notifications = self._stub.SubscribeForNotifications(server_pb2.TPingRequest(
+            username=self._username
+        ))
         async for notif in notifications:
+            print(notif)
             if notif.type == server_pb2.TSystemNotification.REGULAR_MESSAGE:
-                if notif.message == 'GAME OVER':
-                    self._core.turn = 'over'
-                print(f'$system> {notif.message}', flush=True)
+                self._core.print(notif.message)
             elif notif.type == server_pb2.TSystemNotification.SESSION_INFO_MESSAGE:
                 session_info: server_pb2.TSystemNotification.SessionInfo = notif.session_info
-                self._core = ClientCore(
-                    username=self._username,
+                self._core.set_session_info(
                     session_id=session_info.session_id, 
                     role=self.match_role(session_info.role), 
                     session_players=session_info.players
@@ -139,46 +224,67 @@ class Client:
                 self._core.print_session_info()
             elif notif.type == server_pb2.TSystemNotification.TURN_INFO_MESSAGE:
                 turn_info: server_pb2.TSystemNotification.TurnInfo = notif.turn_info
-                print("TURN INFO:")
-                print(turn_info)
                 self._core.set_turn_info(
                     turn=self.match_role(turn_info.turn),
                     target=(turn_info.target_username, self.match_role(turn_info.target_role)),
                     vote_options=turn_info.vote_options
                 )
                 self._core.print_turn_info()
+            elif notif.type == server_pb2.TSystemNotification.RESULT_MESSAGE:
+                self._core.turn = 'over'
+                data = dict()
+                for client in notif.result.clients:
+                    data[client.username] = (client.alive, self.match_role(client.role))
+                self._core.print_result(notif.result.citizens_wins, data)
+            await asyncio.sleep(0.1)
+            print('kekekek')
+
+    async def _new_session(self):
+        response = await self._stub.WaitInQueue(server_pb2.TPingRequest(
+            username=self._username
+        )) 
+        if response.message:
+            self._core.print('new session: ' + response.message)
+    
+    async def _pick_request(self, vote_for: str):
+        response = await self._stub.SessionMove(server_pb2.TSessionMoveRequest(
+            username=self._username, 
+            vote_for=vote_for,
+            session_id=self._core.session_id
+        ))
+        self._core.print('pick: ' + response.message)
+        if response.message:
+            self._core.print('pick: ' + response.message)
+
+    async def _disconnect_client(self) -> None:
+        response = await self._stub.DisconnectClient(server_pb2.TPingRequest(
+            username=self._username
+        )) 
+        if response.message:
+            self._core.print('exit: ' + response.message)
+
+    async def _run_sessions(self):
+        print("RUN SESSIONS")
+        if self._core.username == '':
+            raise RuntimeError('client must be connected!')
+        while True:
+            while self._core.session_id == '' or self._core.role == '':
+                await asyncio.sleep(2)
+            async for cmd in self._core.run():
+                print(cmd)
+                if cmd['cmd'] == 'new':
+                    await self._new_session()
+                elif cmd['cmd'] == 'pick':
+                    await self._pick_request(cmd['arg'])
+                else:
+                    await self._disconnect_client()
+                    break
                 await asyncio.sleep(1.5)
-
-
-    async def generate_vote_requests(self):
-        print("GENERATE")
-        while self._core is None:
-            await asyncio.sleep(1)
-        async for vote in self._core.make_votes():
-            print("TARGET VOTE: ", vote)
-            response = await self._stub.RunGame(server_pb2.TSessionMoveRequest(
-                username=self._username, 
-                vote_for=vote, 
-                session_id=self._core.session_id
-            ))
-            await asyncio.sleep(1.5) # ???
-            print(response.message)
-            print(vote)
-        print('OUT OF GENERATE')
-
-    # async def _run_core(self):
-    #     call = self._stub.RunGame(self.generate_vote_requests())
-    #     async for response in call:
-    #         print("RUN CORE: ", response.message)
-    #         # yield
-
-        # await self.disconnect_client()
 
     async def stack_tasks(self):
         task_group = asyncio.gather(
             self._get_system_notifications(),
-            # self._run_core()
-            self.generate_vote_requests()
+            self._run_sessions()
         )
         await task_group
 
@@ -186,7 +292,8 @@ class Client:
 async def main() -> None:
     async with grpc.aio.insecure_channel('localhost:50051') as channel:
         stub = server_pb2_grpc.IServerStub(channel)
-        client = Client(stub)
+        client_core = ClientCore()
+        client = Client(stub, client_core)
         await client.connect_client()
         await client.stack_tasks()
 

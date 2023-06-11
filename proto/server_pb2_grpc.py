@@ -19,6 +19,11 @@ class IServerStub(object):
                 request_serializer=server__pb2.TPingRequest.SerializeToString,
                 response_deserializer=server__pb2.TPingResponse.FromString,
                 )
+        self.WaitInQueue = channel.unary_unary(
+                '/IServer/WaitInQueue',
+                request_serializer=server__pb2.TPingRequest.SerializeToString,
+                response_deserializer=server__pb2.TPingResponse.FromString,
+                )
         self.DisconnectClient = channel.unary_unary(
                 '/IServer/DisconnectClient',
                 request_serializer=server__pb2.TPingRequest.SerializeToString,
@@ -29,8 +34,8 @@ class IServerStub(object):
                 request_serializer=server__pb2.TPingRequest.SerializeToString,
                 response_deserializer=server__pb2.TSystemNotification.FromString,
                 )
-        self.RunGame = channel.unary_unary(
-                '/IServer/RunGame',
+        self.SessionMove = channel.unary_unary(
+                '/IServer/SessionMove',
                 request_serializer=server__pb2.TSessionMoveRequest.SerializeToString,
                 response_deserializer=server__pb2.TSessionMoveResponse.FromString,
                 )
@@ -40,8 +45,13 @@ class IServerServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def ConnectClient(self, request, context):
-        """по имени и id клиента регистрируем его в нашем сервере 
-        """
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def WaitInQueue(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -58,30 +68,8 @@ class IServerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def RunGame(self, request, context):
-        """/* по id клиента получаем информацию про его сессию: 
-        настройки сессии (кол-во игроков, мафии), статус (жив/мертв) и имена самих игроков*/
-        rpc GetSessionInfo(TGetSessionInfoRequest) returns (TGetSessionInfoResponse) {}
-
-        /*по настройкам сессии создается сессия - ей назначается id, 
-        клиент получает id сессии*/
-        rpc StartSession(TStartSessionRequest) returns (stream TStartSessionResponse) {}
-
-        /* добавить нового клиента в данную сессию 
-        сервер уведомляет о новом участнике всем участникам сессии */
-        rpc AddMemberToSession(TAddMemberToSessionRequest) returns (stream TAddMemberToSessionResponse) {}
-
-        /* клиент подписывается на уведомления (новые участники+выбор игрока+голосование+тп) по id сессии*/
-        rpc SubscribeForNotifications(TSubscribeRequest) returns (stream TNotification) {}
-
-        /* 1 день: говорим о количестве игроков, желаем удачи
-        ночь: 
-        - мафия просыпается и голосует - сервер собирает голоса и убивает
-        - комиссар просыпается и голосует - сервер отвечает кто мафия
-        днем:
-        - объявляем кто убит - сервер обновляет статусы игроков
-        - мирные голосует и объявляем итоги - сервер собирает голоса и убивает одного */
-        """
+    def SessionMove(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -91,6 +79,11 @@ def add_IServerServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'ConnectClient': grpc.unary_unary_rpc_method_handler(
                     servicer.ConnectClient,
+                    request_deserializer=server__pb2.TPingRequest.FromString,
+                    response_serializer=server__pb2.TPingResponse.SerializeToString,
+            ),
+            'WaitInQueue': grpc.unary_unary_rpc_method_handler(
+                    servicer.WaitInQueue,
                     request_deserializer=server__pb2.TPingRequest.FromString,
                     response_serializer=server__pb2.TPingResponse.SerializeToString,
             ),
@@ -104,8 +97,8 @@ def add_IServerServicer_to_server(servicer, server):
                     request_deserializer=server__pb2.TPingRequest.FromString,
                     response_serializer=server__pb2.TSystemNotification.SerializeToString,
             ),
-            'RunGame': grpc.unary_unary_rpc_method_handler(
-                    servicer.RunGame,
+            'SessionMove': grpc.unary_unary_rpc_method_handler(
+                    servicer.SessionMove,
                     request_deserializer=server__pb2.TSessionMoveRequest.FromString,
                     response_serializer=server__pb2.TSessionMoveResponse.SerializeToString,
             ),
@@ -131,6 +124,23 @@ class IServer(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/IServer/ConnectClient',
+            server__pb2.TPingRequest.SerializeToString,
+            server__pb2.TPingResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def WaitInQueue(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/IServer/WaitInQueue',
             server__pb2.TPingRequest.SerializeToString,
             server__pb2.TPingResponse.FromString,
             options, channel_credentials,
@@ -171,7 +181,7 @@ class IServer(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def RunGame(request,
+    def SessionMove(request,
             target,
             options=(),
             channel_credentials=None,
@@ -181,7 +191,7 @@ class IServer(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/IServer/RunGame',
+        return grpc.experimental.unary_unary(request, target, '/IServer/SessionMove',
             server__pb2.TSessionMoveRequest.SerializeToString,
             server__pb2.TSessionMoveResponse.FromString,
             options, channel_credentials,

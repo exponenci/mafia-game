@@ -9,18 +9,26 @@ import asyncio
 PLAYERS_COUNT = 4
 MAFIA_COUNT = 1
 
-class SessionStatus(Enum):
-    START_GAME = 1
-    MAFIA_TURN = 2
-    COMMISSAR_TURN = 3
-    CITIZENS_TURN = 4 # all players turn
-    GAME_OVER = 5
+# class SessionStatus(Enum):
+#     START_GAME = 1
+#     MAFIA_TURN = 2
+#     COMMISSAR_TURN = 3
+#     CITIZENS_TURN = 4 # all players turn
+#     GAME_OVER = 5
 
-STATUS_TYPENAME = {
-    SessionStatus.CITIZENS_TURN: 'citizen',
-    SessionStatus.MAFIA_TURN: 'mafia',
-    SessionStatus.COMMISSAR_TURN: 'commissar',
-}
+# STATUS_TYPENAME = {
+#     SessionStatus.CITIZENS_TURN: 'citizen',
+#     SessionStatus.MAFIA_TURN: 'mafia',
+#     SessionStatus.COMMISSAR_TURN: 'commissar',
+# }
+   
+# STATUS_ROLE = {
+#     SessionStatus.START_GAME: Role.CITIZEN,
+#     SessionStatus.CITIZENS_TURN: Role.CITIZEN,
+#     SessionStatus.MAFIA_TURN: Role.MAFIA,
+#     SessionStatus.COMMISSAR_TURN: Role.COMMISSAR,
+# }
+
 
 @dataclass
 class Notification:
@@ -28,10 +36,11 @@ class Notification:
         REGULAR = 1
         SESSION_INFO = 2
         TURN_INFO = 3
+        RESULT = 4
 
-    data: Dict[str, str]
-    type: NotificationType
-    receiver: Optional[str]
+    data: Dict[str, str] # field - value
+    type: NotificationType # notification type
+    receiver: Optional[str] = None
 
 
 @dataclass
@@ -47,14 +56,18 @@ class VotePool:
         self.expect_votes = dict(zip(voters_list, [False for _ in range(len(voters_list))]))
         random.shuffle(options_list)
         self.target_votes = dict(zip(options_list, [0 for _ in range(len(options_list))]))
-        print("NEW VOTE POOL:", self.target_votes, self.expect_votes)
+        # print("NEW VOTE POOL:", self.target_votes, self.expect_votes)
 
     def accept_vote(self, username: str, target: str):
-        if username in self.expect_votes and not self.expect_votes[username]:
+        if username in self.expect_votes and \
+                not self.expect_votes[username] and\
+                (target in self.target_votes or target == ''):
             self.expect_votes[username] = True
             if target != '':
                 self.target_votes[target] += 1
             self.votes_count += 1
+            return True
+        return False
     
     def is_full(self) -> bool:
         return self.expect_votes_count == 1 or \
@@ -69,12 +82,15 @@ class VotePool:
     def get_poll_result(self) -> str: # username
         return sorted(list(self.target_votes.items()), key=lambda item: item[1])[-1][0]
 
+
 @dataclass
 class Session:
     session_id: str
     players: Dict[str, Player] = field(default_factory=dict) # players pool
 
-    status: SessionStatus = SessionStatus.START_GAME # sessoin status
+    turn: Role = Role.CITIZEN
+    session_is_over: bool = False
+    # status: SessionStatus = SessionStatus.START_GAME # sessoin status
     notifications: List[Notification] = field(default_factory=list) # session notifications [notification, receiver group]
 
     roles_distribution: Dict[str, Role] = field(default_factory=dict) # roles for players
@@ -83,24 +99,27 @@ class Session:
     commissar: Optional[str] = None # commissar player if alive, none otherwise
     killed_players: List[str] = field(default_factory=list) # killed session players
 
-    vote_pool: VotePool = VotePool()
+    vote_pool: VotePool = VotePool() # vote pool
     
-    next_status = {
-        SessionStatus.START_GAME: SessionStatus.MAFIA_TURN,
-        SessionStatus.CITIZENS_TURN: SessionStatus.MAFIA_TURN,
-        SessionStatus.MAFIA_TURN: SessionStatus.COMMISSAR_TURN,
-        SessionStatus.COMMISSAR_TURN: SessionStatus.CITIZENS_TURN,
-    }
-    
-    status_role = {
-        SessionStatus.START_GAME: Role.CITIZEN,
-        SessionStatus.CITIZENS_TURN: Role.CITIZEN,
-        SessionStatus.MAFIA_TURN: Role.MAFIA,
-        SessionStatus.COMMISSAR_TURN: Role.COMMISSAR,
+    next_turn_map = {
+        Role.CITIZEN: Role.MAFIA,
+        Role.MAFIA: Role.COMMISSAR,
+        Role.COMMISSAR: Role.CITIZEN,
     }
 
-    def distribute_roles(self):
-        print("DISTRIBUTING ROLES")
+    # next_status_map = {
+    #     SessionStatus.START_GAME: SessionStatus.MAFIA_TURN,
+    #     SessionStatus.CITIZENS_TURN: SessionStatus.MAFIA_TURN,
+    #     SessionStatus.MAFIA_TURN: SessionStatus.COMMISSAR_TURN,
+    #     SessionStatus.COMMISSAR_TURN: SessionStatus.CITIZENS_TURN,
+    # }
+
+    def preprocess(self):
+        self._distribute_roles()
+        self._prepare_notifications()
+        self._reset()
+
+    def _distribute_roles(self):
         players = list(self.players.keys())
         self.commissar = list(random.choices(players))[0]
         self.roles_distribution[self.commissar] = Role.COMMISSAR
@@ -114,73 +133,107 @@ class Session:
         for citizen in self.citizens:
             self.roles_distribution[citizen] = Role.CITIZEN
 
-    def prepare_notifications(self):
+    def _prepare_notifications(self):
         self.notifications += [
             Notification(
-                {'message': 'Session found...'}, 
+                {
+                    'message': 'Session found...'
+                },
                 Notification.NotificationType.REGULAR,
                 'all'
             ),
             Notification(
-                {'session_id': self.session_id, 'role': Role.MAFIA, 'players': list(self.players.keys())}, 
+                {
+                    'session_id': self.session_id, 
+                    'role': Role.MAFIA, 
+                    'players': list(self.players.keys())
+                }, 
                 Notification.NotificationType.SESSION_INFO,
-                'mafia' 
+                'mafia'
             ),
             Notification(
-                {'session_id': self.session_id, 'role': Role.CITIZEN, 'players': list(self.players.keys())}, 
+                {
+                    'session_id': self.session_id, 
+                    'role': Role.CITIZEN, 
+                    'players': list(self.players.keys())
+                }, 
                 Notification.NotificationType.SESSION_INFO,
                 'citizen'
             ),
             Notification(
-                {'session_id': self.session_id, 'role': Role.COMMISSAR, 'players': list(self.players.keys())}, 
+                {
+                    'session_id': self.session_id, 
+                    'role': Role.COMMISSAR, 
+                    'players': list(self.players.keys())
+                }, 
                 Notification.NotificationType.SESSION_INFO,
                 'commissar' 
             ),
         ]
-        print("SESSION NOTIFICATIONS: ", self.notifications)
         for player in self.players.values():
             player.accept_core_notifications = False
 
-    def reset(self, update_status: bool = True, **kwargs):
-        if update_status:
-            print("PREPARING NOTIFICATIONS HERE...")
-            self.status = self.next_status[self.status]
+    def _reset(self, update_turn: bool = True, **kwargs):
+        if update_turn:
+            self.turn = self.next_turn_map[self.turn]
+        
         commissar_list = []
         if self.commissar:
             commissar_list.append(self.commissar)
 
-        if self.status == SessionStatus.MAFIA_TURN:
+        if self.turn == Role.MAFIA:
             self.vote_pool.reset(self.mafia, self.citizens + commissar_list)
-        elif self.status == SessionStatus.CITIZENS_TURN:
+        elif self.turn == Role.CITIZEN:
             alive_players = self.mafia + self.citizens + commissar_list
             self.vote_pool.reset(alive_players, alive_players)
         elif commissar_list:
             self.vote_pool.reset(commissar_list, self.citizens + self.mafia)
 
-        kwargs['turn'] = self.status_role[self.status]
+        kwargs['turn'] = self.turn
         kwargs['vote_options'] = list(self.vote_pool.target_votes.keys())
+        print(kwargs)
         self.notifications.append(Notification(
             data=kwargs,
             type=Notification.NotificationType.TURN_INFO,
             receiver='all'
         ))
 
+    def _kill(self, username: str):
+        role: Role = self.roles_distribution[username]
+        self.killed_players.append(username)
+        if role == Role.MAFIA:
+            self.mafia.remove(username)
+        elif role == Role.CITIZEN:
+            self.citizens.remove(username)
+        else:
+            self.commissar = None
+            self.next_turn_map[Role.MAFIA] = Role.CITIZEN
+
+    def _is_game_over(self):
+        if self.commissar is not None:
+            commissar_i = 1
+        else:
+            commissar_i = 0
+        return len(self.mafia) == 0 or len(self.mafia) >= len(self.citizens) + commissar_i
+
     async def send_notifications(self, username: str):
         role = self.roles_distribution[username]
-        print("SEND SESSION NOTIFICATIONS: username {}; role {}".format(username, role))
         notif_i = 0
-        while self.status != SessionStatus.GAME_OVER:
+        while not self.session_is_over or notif_i < len(self.notifications):
             while notif_i < len(self.notifications):
                 notif: Notification = self.notifications[notif_i]
-                # print("INNER LOOP", username, message, receiver)
+                print("SENDING NOTIF")
                 if notif.receiver == 'all':
+                    print(notif)
                     if notif.type == Notification.NotificationType.TURN_INFO:
+                        # we don't want send options to all clients, only to the appropriate ones
                         if (role != Role.MAFIA and notif.data['turn'] == Role.MAFIA) or \
                                 (role != Role.COMMISSAR and notif.data['turn'] == Role.COMMISSAR):
                             copy_data = notif.data.copy()
                             copy_data['vote_options'] = []
-                            other_notif = Notification(copy_data, notif.type, notif.receiver)
-                            yield other_notif
+                            modified_notif = Notification(copy_data, notif.type, notif.receiver)
+                            print('MODIFIED', modified_notif)
+                            yield modified_notif
                         else:
                             yield notif
                     else:
@@ -189,56 +242,66 @@ class Session:
                         (role == Role.MAFIA and notif.receiver == 'mafia') or \
                         (role == Role.COMMISSAR and notif.receiver == 'commissar') or \
                         (role == Role.CITIZEN and notif.receiver == 'citizen'):
-                    print('==' * 100)
-                    print(notif)
                     yield notif
                 notif_i += 1
-            await asyncio.sleep(2)
-
-    def kill(self, username: str):
-        role = self.roles_distribution[username]
-        self.killed_players.append(username)
-        if role == Role.MAFIA:
-            self.mafia.remove(username)
-        elif role == Role.CITIZEN:
-            self.citizens.remove(username)
-        else:
-            self.commissar = None
-            self.next_status[SessionStatus.MAFIA_TURN] = SessionStatus.CITIZENS_TURN
-
-    def is_game_over(self):
-        if self.commissar is not None:
-            commissar_i = 1
-        else:
-            commissar_i = 0
-        return len(self.mafia) == 0 or len(self.mafia) >= len(self.citizens) + commissar_i
+            await asyncio.sleep(1)
 
     async def accept_vote(self, username: str, target: str):
-        self.vote_pool.accept_vote(username, target)
+        print("ACCEPT VOTE FROM", username, "TO", target)
+        if self.session_is_over:
+            print("BROKE 1")
+            return {
+                'message': 'Session is over!'
+            }
+        if not self.vote_pool.accept_vote(username, target):
+            print("BROKE 2")
+            return {
+                'message': 'Invalid vote params! Check your username and the one you are picking!'
+            }
+        print("CONT")
         if self.vote_pool.is_full():
+            print("IS FULL")
             if self.vote_pool.is_valid():
                 target_username = self.vote_pool.get_poll_result()
                 target_role = self.roles_distribution[target_username]
-                if self.status != SessionStatus.COMMISSAR_TURN:
-                    self.kill(target_username)
-                    self.reset(update_status=True, 
-                               target_role=target_role, 
-                               target_username=target_username)
+                if self.turn != Role.COMMISSAR:
+                    self._kill(target_username)
+                    self._reset(
+                        target_role=target_role, 
+                        target_username=target_username
+                    )
                 else:
-                    self.reset(update_status=True, 
-                               target_role=target_role, 
-                               target_username='<>')
+                    self._reset(
+                        target_role=target_role, 
+                        target_username='<?>'
+                    )
  
-                if self.is_game_over():
+                if self._is_game_over():
+                    self.session_is_over = True
+                    clients = list()
+                    for username in self.players.keys():
+                        clients.append(
+                            {
+                                'username': username,
+                                'alive': username not in self.killed_players,
+                                'role': self.roles_distribution[username]
+                            }
+                        )
                     self.notifications.append(Notification(
-                        data={'message': 'GAME OVER'},
-                        type=Notification.NotificationType.REGULAR,
+                        data={
+                            'citizens_wins': len(self.mafia) == 0,
+                            'clients': clients
+                        },
+                        type=Notification.NotificationType.RESULT,
                         receiver='all'
                     ))
             else:
-                self.reset(update_status=False)
+                self._reset(update_turn=False)
                 self.notifications.append(Notification(
-                    data={'message': 'there are several candidates with equal max vote-counts... revote is required!'},
+                    data={
+                        'message': 'There are several candidates with equal max vote-counts... Revote is required!'
+                    },
                     type=Notification.NotificationType.REGULAR,
                     receiver='all'
                 ))
+        return {}

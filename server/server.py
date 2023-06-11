@@ -1,6 +1,7 @@
 import os
 import sys
 import inspect
+import asyncio
 
 currentdir = os.path.dirname(
     os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -16,44 +17,52 @@ import proto.server_pb2_grpc as core_server_grpc
 from server.core import Core 
 from server.session import Player, Session, Notification, Role
 
+from concurrent import futures
+from grpc import aio
+
 
 class Server(core_server_grpc.IServerServicer):
     def __init__(self) -> None:
         super().__init__()
         self.core: Core = Core()
 
-    async def ConnectClient(self, 
-                            request: core_server.TPingRequest, 
-                            context):
-        metadata = dict(context.invocation_metadata())
-        print(metadata)
-        print("AWAITING resp")
-        resp = await self.core.connect_player(request.username)
-        print("RECIEVED resp")
-        return core_server.TPingResponse(
-            message=resp['message']
-        )
-
-    async def DisconnectClient(self, 
-                               request: core_server.TPingRequest, 
-                               context):
-        resp = await self.core.disconnect_player(request.username)
-        return core_server.TPingResponse(
-            message=resp['message']
-        )
-
     @staticmethod
     def match_role(role: Role):
+        print("SERVER_MATCHING_ROLE:", role)
         if role == Role.MAFIA:
             return core_server.TSystemNotification.MAFIA_ROLE
         elif role == Role.COMMISSAR:
             return core_server.TSystemNotification.COMMISSAR_ROLE
         return core_server.TSystemNotification.CITIZEN_ROLE
 
+    async def ConnectClient(self, 
+                            request: core_server.TPingRequest, 
+                            context) -> core_server.TPingResponse:
+        result = await self.core.connect_player(request.username)
+        return core_server.TPingResponse(
+            message=result.get('message')
+        )
+
+    async def WaitInQueue(self, 
+                          request: core_server.TPingRequest, 
+                          context) -> core_server.TPingResponse:
+        result = await self.core.wait_in_queue(request.username)
+        return core_server.TPingResponse(
+            message=result.get('message')
+        )
+
+    async def DisconnectClient(self, 
+                               request: core_server.TPingRequest, 
+                               context) -> core_server.TPingResponse:
+        result = await self.core.disconnect_player(request.username)
+        return core_server.TPingResponse(
+            message=result.get('message')
+        )
+
     async def SubscribeForNotifications(self, 
                                         request: core_server.TPingRequest, 
-                                        context):
-        async for notif in self.core.core_notifications(request.username):
+                                        context) -> AsyncIterable[core_server.TSystemNotification]:
+        async for notif in self.core.send_notifications(request.username):
             if notif.type == notif.NotificationType.REGULAR:
                 yield core_server.TSystemNotification(
                     type=core_server.TSystemNotification.REGULAR_MESSAGE,
@@ -69,32 +78,56 @@ class Server(core_server_grpc.IServerServicer):
                     )
                 )
             elif notif.type == notif.NotificationType.TURN_INFO:
+                print()
+                print("=" * 50)
+                print(notif)
+                print("=" * 50)
+                print()
                 target_role = notif.data.get('target_role')
                 if target_role is not None:
                     target_role = self.match_role(target_role)
-                yield core_server.TSystemNotification(
+                print(self.match_role(notif.data['turn']))
+                upd = core_server.TSystemNotification(
                     type=core_server.TSystemNotification.TURN_INFO_MESSAGE,
                     turn_info=core_server.TSystemNotification.TurnInfo(
                         turn=self.match_role(notif.data['turn']),
-                        vote_options=notif.data.get('vote_options'),
+                        vote_options=notif.data.get('vote_options', []),
                         target_username=notif.data.get('target_username'),
                         target_role=target_role,
                     )
                 )
+                print(upd)
+                yield upd
+            elif notif.type == notif.NotificationType.RESULT:
+                clients = list(
+                    map(
+                        lambda el: core_server.TSystemNotification.SessionResult.Client(
+                            username=el['username'],
+                            alive=el['alive'],
+                            role=self.match_role(el['role'])
+                        ), 
+                        notif.data['clients']
+                    )
+                )
+                yield core_server.TSystemNotification(
+                    type=core_server.TSystemNotification.RESULT_MESSAGE,
+                    result=core_server.TSystemNotification.SessionResult(
+                        citizens_wins=notif.data['citizens_wins'],
+                        clients=clients
+                    )
+                )
     
-    async def RunGame(self, 
-                      request: core_server.TSessionMoveRequest, 
-                      context):
-        await self.core.count_vote(
+    async def SessionMove(self, 
+                          request: core_server.TSessionMoveRequest,
+                          context) -> core_server.TSessionMoveResponse:
+        result = await self.core.accept_vote(
             request.username,
             request.vote_for,
             request.session_id,
         )
-        return core_server.TSessionMoveResponse(message="RUN GAME STEP DONE")
-
-
-from concurrent import futures
-from grpc import aio
+        return core_server.TSessionMoveResponse(
+            message=result.get('message')
+        )
 
 
 async def serve():
@@ -107,6 +140,5 @@ async def serve():
     await server.wait_for_termination()
 
 
-import asyncio
 if __name__ == '__main__':
     asyncio.run(serve())

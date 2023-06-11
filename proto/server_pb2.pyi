@@ -35,7 +35,7 @@ class TSessionMoveResponse(_message.Message):
     def __init__(self, message: _Optional[str] = ...) -> None: ...
 
 class TSystemNotification(_message.Message):
-    __slots__ = ["message", "session_info", "turn_info", "type"]
+    __slots__ = ["message", "result", "session_info", "turn_info", "type"]
     class NotificationType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = []
     class Role(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
@@ -49,6 +49,22 @@ class TSystemNotification(_message.Message):
         role: TSystemNotification.Role
         session_id: str
         def __init__(self, session_id: _Optional[str] = ..., role: _Optional[_Union[TSystemNotification.Role, str]] = ..., players: _Optional[_Iterable[str]] = ...) -> None: ...
+    class SessionResult(_message.Message):
+        __slots__ = ["citizens_wins", "clients"]
+        class Client(_message.Message):
+            __slots__ = ["alive", "role", "username"]
+            ALIVE_FIELD_NUMBER: _ClassVar[int]
+            ROLE_FIELD_NUMBER: _ClassVar[int]
+            USERNAME_FIELD_NUMBER: _ClassVar[int]
+            alive: bool
+            role: TSystemNotification.Role
+            username: str
+            def __init__(self, username: _Optional[str] = ..., alive: bool = ..., role: _Optional[_Union[TSystemNotification.Role, str]] = ...) -> None: ...
+        CITIZENS_WINS_FIELD_NUMBER: _ClassVar[int]
+        CLIENTS_FIELD_NUMBER: _ClassVar[int]
+        citizens_wins: bool
+        clients: _containers.RepeatedCompositeFieldContainer[TSystemNotification.SessionResult.Client]
+        def __init__(self, citizens_wins: bool = ..., clients: _Optional[_Iterable[_Union[TSystemNotification.SessionResult.Client, _Mapping]]] = ...) -> None: ...
     class TurnInfo(_message.Message):
         __slots__ = ["target_role", "target_username", "turn", "vote_options"]
         TARGET_ROLE_FIELD_NUMBER: _ClassVar[int]
@@ -65,13 +81,16 @@ class TSystemNotification(_message.Message):
     MAFIA_ROLE: TSystemNotification.Role
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
     REGULAR_MESSAGE: TSystemNotification.NotificationType
+    RESULT_FIELD_NUMBER: _ClassVar[int]
+    RESULT_MESSAGE: TSystemNotification.NotificationType
     SESSION_INFO_FIELD_NUMBER: _ClassVar[int]
     SESSION_INFO_MESSAGE: TSystemNotification.NotificationType
     TURN_INFO_FIELD_NUMBER: _ClassVar[int]
     TURN_INFO_MESSAGE: TSystemNotification.NotificationType
     TYPE_FIELD_NUMBER: _ClassVar[int]
     message: str
+    result: TSystemNotification.SessionResult
     session_info: TSystemNotification.SessionInfo
     turn_info: TSystemNotification.TurnInfo
     type: TSystemNotification.NotificationType
-    def __init__(self, type: _Optional[_Union[TSystemNotification.NotificationType, str]] = ..., message: _Optional[str] = ..., session_info: _Optional[_Union[TSystemNotification.SessionInfo, _Mapping]] = ..., turn_info: _Optional[_Union[TSystemNotification.TurnInfo, _Mapping]] = ...) -> None: ...
+    def __init__(self, type: _Optional[_Union[TSystemNotification.NotificationType, str]] = ..., message: _Optional[str] = ..., session_info: _Optional[_Union[TSystemNotification.SessionInfo, _Mapping]] = ..., turn_info: _Optional[_Union[TSystemNotification.TurnInfo, _Mapping]] = ..., result: _Optional[_Union[TSystemNotification.SessionResult, _Mapping]] = ...) -> None: ...
